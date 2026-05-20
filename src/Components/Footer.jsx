@@ -56,6 +56,9 @@ function Footer() {
             <li><Link to='/developer'>Developer</Link></li>
             <li><Link to='/reels'>Reel</Link></li>
             <li><Link to='/franchise-request'>Want to be a Franchise</Link></li>
+            <li><Link to='/termsandcondition'>Terms and Condition</Link></li>
+            <li><Link to='/privacyandpolicy'>Privacy Policy</Link></li>
+            <li><Link to='/RefundPolicy'>Refund Policy</Link></li>
             {/* <li><Link to='/my-franchise'>My Franchise</Link></li> */}
           </ul>
         </div>

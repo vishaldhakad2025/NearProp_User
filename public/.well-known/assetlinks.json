@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.app.nearprop",
+      "sha256_cert_fingerprints": [
+        "33:B9:BE:2D:89:8B:57:00:8D:C6:E9:AD:80:BA:AA:20:B7:D3:97:5F:89:5C:AF:5D:AD:BE:C5:B7:6E:46:81:91"
+      ]
+    }
+  } 
+]

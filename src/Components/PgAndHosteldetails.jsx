@@ -11,11 +11,11 @@ import {
   faShare,
   faPhone,
   faComment,
-  faEnvelope, // Added to fix the faEnvelope error
+  faEnvelope,
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram, faFacebook, faYoutube, faLinkedin } from '@fortawesome/free-brands-svg-icons';
 import axios from 'axios';
-import HotelSidebar from './HotelSidebar'; // Import the HotelSidebar component
+import PgHostelSidebar from './PgHostelSidebar';
 import './PgAndHostelDetails.css';
 
 const API_CONFIG = {
@@ -24,9 +24,30 @@ const API_CONFIG = {
   privateApiPrefix: 'api',
 };
 
+const AD_API_CONFIG = {
+  baseUrl: 'https://api.nearprop.com',
+  apiPrefix: 'api/v1',
+};
+
+const FALLBACK_AD = [
+  {
+    id: 1,
+    title: "Luxury Hotel in Ujjain",
+    description: "Experience a luxurious stay with world-class amenities and scenic views",
+    bannerImageUrl: "/hotel.jpg",
+    phoneNumber: "+91 91551 05666",
+    whatsappNumber: "+91 91551 05666",
+    emailAddress: "bookings@ujjainhotel.com",
+    targetLocation: "Ujjain",
+    validUntil: "2025-12-31T23:59:59",
+    createdBy: { name: "Hotel Administrator" },
+  },
+];
+
+const DEFAULT_AD_IMAGE = '/assets/default-hotel-ad.png';
 const PLACEHOLDER_IMAGE = 'https://placehold.co/600x400';
 const DEFAULT_AVATAR = '/assets/default-avatar.png';
-const DUMMY_AD_IMAGE = '/apartment.avif';
+
 const DEFAULT_PROPERTY = {
   id: '',
   propertyId: 'N/A',
@@ -48,24 +69,6 @@ const DEFAULT_PROPERTY = {
   createdAt: 'N/A',
   owner: { name: 'Unknown Agent', phone: 'N/A', avatar: DEFAULT_AVATAR },
 };
-
-// Inline mock ad data
-const mockAdData = [
-  {
-    id: 14,
-    title: "Best Deal on Highway Plot Sale – Ujjain",
-    description: "Grab the opportunity to own a premium residential/commercial plot on Ujjain Highway Road. Limited plots available at attractive prices.",
-    bannerImageUrl: "https://my-nearprop-bucket.s3.ap-south-1.amazonaws.com/advertisements/media/advertisements/admin/18_rohit-gurjar/best-deal-on-highway-plot-sale-ujjain/images/best-deal-on-highway-plot-sale-ujjain-1fd10dbf-6ff5-4677-91ad-9d6bbda60866.jpg",
-    phoneNumber: "6265861847",
-    emailAddress: "rohitkiaaan@gmail.com",
-    facebookUrl: "https://www.facebook.com/profile.php?id=100085421884918",
-    instagramUrl: "https://www.instagram.com/saim_7024?igsh=MXF6M2w5aXJ5Y3F4Zw==",
-    youtubeUrl: "https://youtu.be/upU0OcE658E?si=yZs8jnCXx5Qm8jpD",
-    linkedinUrl: "https://linkedin.com/company/ujjainplots",
-    additionalInfo: "✅ Highway Touch | ✅ EMI Available | ✅ Registry Ready",
-    createdBy: { name: "Rohit Gurjar" },
-  },
-];
 
 function ErrorBoundary({ children }) {
   const [hasError, setHasError] = useState(false);
@@ -106,48 +109,38 @@ function PgAndHostelDetails() {
   const [newRating, setNewRating] = useState(0);
   const [newReview, setNewReview] = useState('');
   const [newComment, setNewComment] = useState('');
-  const [advertisements, setAdvertisements] = useState(mockAdData);
+  const [advertisements, setAdvertisements] = useState([]);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
-  const [adsLoading, setAdsLoading] = useState(false); // Initialized to false since using mock data
+  const [adsLoading, setAdsLoading] = useState(true);
   const [adsError, setAdsError] = useState(null);
-
-  const validateToken = (token) => {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const now = Math.floor(Date.now() / 1000);
-      if (payload.exp && payload.exp < now) return null;
-      return {
-        userId: payload.sub || payload.id,
-        role: payload.roles ? payload.roles.join(',') : payload.role,
-        email: payload.email || undefined,
-        sessionId: payload.sessionId || undefined,
-      };
-    } catch (err) {
-      return null;
-    }
-  };
 
   const getToken = () => {
     try {
       const authData = localStorage.getItem('authData');
       if (!authData) return null;
+
       const parsedData = JSON.parse(authData);
-      if (!parsedData?.token) return null;
-      const validatedData = validateToken(parsedData.token);
-      if (!validatedData) return null;
-      return {
-        token: parsedData.token,
-        userId: validatedData.userId || parsedData.userId,
-        ownerName: parsedData.name || 'Unknown Agent',
-        ownerPhone: parsedData.contactNumber || 'N/A',
-        ownerAvatar: parsedData.profilePhoto || DEFAULT_AVATAR,
-        sessionId: validatedData.sessionId,
-      };
+      if (!parsedData || !parsedData.token) return null;
+
+      const token = parsedData.token;
+
+      // Verify token
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const now = Math.floor(Date.now() / 1000);
+
+      // Check if token is expired
+      if (payload.exp && payload.exp < now) {
+        localStorage.removeItem('authData');
+        return null;
+      }
+
+      return token;
     } catch (err) {
+      console.error('Token validation error:', err);
+      localStorage.removeItem('authData');
       return null;
     }
   };
-
   const retryRequest = async (fn, retries = 2, delay = 1000) => {
     for (let i = 0; i < retries; i++) {
       try {
@@ -159,19 +152,68 @@ function PgAndHostelDetails() {
     }
   };
 
+  const fetchAdvertisements = async (districtName) => {
+    try {
+      setAdsLoading(true);
+      setAdsError(null);
+      const token = getToken();
+      const cleanedDistrict = (districtName || 'Ujjain').replace(/[^a-zA-Z\s]/g, '');
+
+      const response = await axios.get(
+        `${AD_API_CONFIG.baseUrl}/${AD_API_CONFIG.apiPrefix}/advertisements`,
+        {
+          params: {
+            page: 0,
+            size: 10,
+            sortBy: "createdAt",
+            direction: "DESC",
+            targetLocation: cleanedDistrict,
+            type: 'hotel',
+          },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      let ads = response.data.content || response.data;
+      const filteredAds = ads.filter(ad =>
+        ad.targetLocation?.toLowerCase() === cleanedDistrict.toLowerCase()
+      );
+
+      if (filteredAds.length === 0) {
+        console.warn(`No hotel advertisements found for district: ${cleanedDistrict}`);
+        setAdvertisements(FALLBACK_AD);
+        setAdsError(`No hotel advertisements available for ${cleanedDistrict}.`);
+      } else {
+        setAdvertisements(filteredAds);
+      }
+    } catch (err) {
+      console.error('Advertisement fetch error:', err.message);
+      setAdsError(`Failed to load hotel advertisements: ${err.message}`);
+      setAdvertisements(FALLBACK_AD);
+    } finally {
+      setAdsLoading(false);
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
-        const auth = getToken();
-        const headers = auth?.token
-          ? { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' }
+        const token = getToken();
+        const headers = token
+          ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
           : { 'Content-Type': 'application/json' };
 
         const propertyResponse = await retryRequest(() =>
           axios.get(`${API_CONFIG.baseUrl}/${API_CONFIG.publicApiPrefix}/property/${pgandhosteltyId}`, {
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
           })
         );
 
@@ -205,9 +247,11 @@ function PgAndHostelDetails() {
             name: propData.landlord?.name || DEFAULT_PROPERTY.owner.name,
             phone: propData.landlord?.contactNumber || DEFAULT_PROPERTY.owner.phone,
             avatar: propData.landlord?.profilePhoto || DEFAULT_PROPERTY.owner.avatar,
-            whatsapp: propData.landlord?.whatsapp || DEFAULT_PROPERTY.owner.phone, // Added for HotelSidebar
+            whatsapp: propData.landlord?.whatsapp || propData.landlord?.contactNumber || DEFAULT_PROPERTY.owner.phone,
           },
         });
+
+        fetchAdvertisements(propData.location?.city);
 
         const ratingsParams = new URLSearchParams({
           page: '1',
@@ -299,15 +343,15 @@ function PgAndHostelDetails() {
 
   const handleSubmitRating = async (e) => {
     e.preventDefault();
-    const auth = getToken();
-    if (!auth?.token) {
+    const token = getToken();
+    if (!token) {
       setError('Please log in to submit a rating.');
       navigate('/login', { state: { from: `/pg-and-hostels/${pgandhosteltyId}` } });
       return;
     }
 
     try {
-      const headers = { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' };
+      const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
       await retryRequest(() =>
         axios.post(
           `${API_CONFIG.baseUrl}/${API_CONFIG.privateApiPrefix}/property/${pgandhosteltyId}/ratings`,
@@ -348,7 +392,7 @@ function PgAndHostelDetails() {
     } catch (err) {
       if (err.response?.status === 401) {
         setError('Authentication failed. Please log in again.');
-        localStorage.removeItem('authData');
+        localStorage.removeItem('token');
         navigate('/login', { state: { from: `/pg-and-hostels/${pgandhosteltyId}` } });
       } else if (err.response?.status === 403) {
         setError('You do not have permission to submit a rating.');
@@ -360,15 +404,15 @@ function PgAndHostelDetails() {
 
   const handleSubmitComment = async (e) => {
     e.preventDefault();
-    const auth = getToken();
-    if (!auth?.token) {
+    const token = getToken();
+    if (!token) {
       setError('Please log in to submit a comment.');
       navigate('/login', { state: { from: `/pg-and-hostels/${pgandhosteltyId}` } });
       return;
     }
 
     try {
-      const headers = { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' };
+      const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
       await retryRequest(() =>
         axios.post(
           `${API_CONFIG.baseUrl}/${API_CONFIG.privateApiPrefix}/property/${pgandhosteltyId}/comments`,
@@ -395,7 +439,7 @@ function PgAndHostelDetails() {
     } catch (err) {
       if (err.response?.status === 401) {
         setError('Authentication failed. Please log in again.');
-        localStorage.removeItem('authData');
+        localStorage.removeItem('token');
         navigate('/login', { state: { from: `/pg-and-hostels/${pgandhosteltyId}` } });
       } else if (err.response?.status === 403) {
         setError('You do not have permission to submit a comment.');
@@ -443,11 +487,6 @@ function PgAndHostelDetails() {
     });
   };
 
-  const handleAdClick = () => {
-    navigate('/pg-and-hostels');
-  };
-
-  // Map property to propertydata for HotelSidebar
   const propertyData = {
     price: property.lowestPrice,
     type: property.type,
@@ -459,13 +498,7 @@ function PgAndHostelDetails() {
   };
 
   if (loading) {
-    return (
-      // <div className="spinner">
-      //   {/* <div className="spinner-icon"></div> */}
-      //   {/* <p>Loading property details...</p> */}
-      // </div>
-      <>Loading..</>
-    );
+    return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>;
   }
 
   if (error) {
@@ -484,215 +517,6 @@ function PgAndHostelDetails() {
   return (
     <ErrorBoundary>
       <div className="main-container">
-        <style jsx>{`
-          .advertisement-section {
-            margin: 24px 0;
-            padding: 24px;
-            background: #ffffff;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            position: relative;
-          }
-
-          .ad-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-            align-items: stretch;
-            height: 100%;
-          }
-
-          .ad-image {
-            width: 100%;
-            height: 100%;
-            min-height: 300px;
-            object-fit: cover;
-            border-radius: var(--border-radius);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease;
-          }
-
-          .ad-image:hover {
-            transform: scale(1.02);
-          }
-
-          .ad-content {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            height: 100%;
-            padding: 8px 0;
-          }
-
-          .ad-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--text-dark);
-            margin-bottom: 8px;
-            text-align: left;
-          }
-
-          .ad-description {
-            font-size: 0.9rem;
-            color: var(--text-grey);
-            line-height: 1.6;
-            margin: 0;
-            flex-grow: 1;
-          }
-
-          .ad-contact-icons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-            margin-top: 16px;
-          }
-
-          .ad-contact-icons a {
-            color: var(--primary-color);
-            font-size: 1.5rem;
-            transition: color 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-          }
-
-          .ad-contact-icons a:hover {
-            color: var(--secondary-color);
-          }
-
-          .ad-nav {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 16px;
-          }
-
-          .ad-nav-btn {
-            background: var(--primary-color);
-            color: #ffffff;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: background 0.3s ease;
-          }
-
-          .ad-nav-btn:hover {
-            background: #005555;
-          }
-
-          @media (max-width: 1200px) {
-            .ad-container {
-              grid-template-columns: 1fr;
-            }
-
-            .ad-image {
-              height: 200px;
-              min-height: unset;
-            }
-          }
-
-          @media (max-width: 900px) {
-            .advertisement-section {
-              padding: 16px;
-            }
-
-            .ad-image {
-              height: 180px;
-            }
-
-            .ad-title {
-              font-size: 1.25rem;
-            }
-
-            .ad-description {
-              font-size: 0.85rem;
-            }
-
-            .ad-contact-icons a {
-              font-size: 1.3rem;
-              width: 36px;
-              height: 36px;
-            }
-          }
-
-          @media (max-width: 600px) {
-            .advertisement-section {
-              margin: 16px 0;
-              padding: 12px;
-            }
-
-            h2 {
-              font-size: 1.2rem;
-              margin-bottom: 12px;
-            }
-
-            .ad-container {
-              grid-template-columns: 1fr;
-            }
-
-            .ad-image {
-              height: 150px;
-            }
-
-            .ad-title {
-              font-size: 1.1rem;
-            }
-
-            .ad-description {
-              font-size: 0.8rem;
-            }
-
-            .ad-contact-icons {
-              justify-content: center;
-              gap: 10px;
-            }
-
-            .ad-contact-icons a {
-              font-size: 1.2rem;
-              width: 32px;
-              height: 32px;
-            }
-
-            .ad-nav-btn {
-              padding: 8px 12px;
-              font-size: 0.9rem;
-            }
-          }
-
-          @media (max-width: 480px) {
-            .advertisement-section {
-              padding: 8px;
-            }
-
-            .ad-image {
-              height: 120px;
-            }
-
-            .ad-title {
-              font-size: 1rem;
-            }
-
-            .ad-description {
-              font-size: 0.75rem;
-            }
-
-            .ad-contact-icons a {
-              font-size: 1.1rem;
-              width: 28px;
-              height: 28px;
-            }
-
-            .ad-nav-btn {
-              padding: 6px 10px;
-              font-size: 0.85rem;
-            }
-          }
-        `}</style>
-
         <div className="property-header">
           <div className="property-left">
             <div className="breadcrumbs">
@@ -777,23 +601,6 @@ function PgAndHostelDetails() {
               </div>
             </div>
 
-            {property.reels.length > 0 && (
-              <div className="reels-section">
-                <h2>Reels</h2>
-                <div className="reels-container">
-                  {property.reels.map((reel, index) => (
-                    <video
-                      key={index}
-                      src={reel}
-                      controls
-                      className="reel-video"
-                      onError={(e) => console.error('Reel load error:', e)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
             <div className="overview-container">
               <div className="overview-top-bar">
                 <h2>Overview</h2>
@@ -835,240 +642,13 @@ function PgAndHostelDetails() {
               </div>
             </div>
 
-            <div className="gallery-section">
-              <h2>Gallery</h2>
-              <div className="gallery-grid">
-                {property.images.map((img, index) => (
-                  <img
-                    key={index}
-                    src={img}
-                    alt={`Gallery Image ${index + 1}`}
-                    className="gallery-image"
-                    onError={(e) => (e.target.src = PLACEHOLDER_IMAGE)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="address-section">
-              <h2>Address</h2>
-              <div className="address-details">
-                <div><strong>Address:</strong> {property.address}</div>
-                <div><strong>City:</strong> {property.city}</div>
-                <div><strong>State:</strong> {property.state}</div>
-                <div><strong>Pin Code:</strong> {property.pinCode}</div>
-                <button
-                  className="google-maps-btn"
-                  onClick={() =>
-                    window.open(
-                      `https://www.google.com/maps?q=${encodeURIComponent(
-                        `${property.address}, ${property.city}, ${property.state} ${property.pinCode}`
-                      )}`,
-                      '_blank'
-                    )
-                  }
-                >
-                  Open in Google Maps
-                </button>
-              </div>
-            </div>
-
-            <div className="advertisement-section">
-              <h2>Advertisements</h2>
-              {adsLoading && (
-                <div className="spinner text-center">
-                  <div className="spinner-icon"></div>
-                  <p>Loading advertisements...</p>
-                </div>
-              )}
-              {adsError && <p className="error-text">{adsError}</p>}
-              {!adsLoading && !adsError && advertisements.length === 0 && (
-                <p>No advertisements available for {property.city || 'this district'}.</p>
-              )}
-              {!adsLoading && !adsError && advertisements.length > 0 && (
-                <div key={advertisements[currentAdIndex].id} className="ad-container">
-                  <img
-                    src={advertisements[currentAdIndex].bannerImageUrl}
-                    alt={advertisements[currentAdIndex].title}
-                    className="ad-image"
-                    onError={(e) => { e.target.src = PLACEHOLDER_IMAGE; }}
-                  />
-                  <div className="ad-content">
-                    <h3 className="ad-title">{advertisements[currentAdIndex].title}</h3>
-                    <p className="ad-description">{advertisements[currentAdIndex].description}</p>
-                    <div className="ad-contact-icons">
-                      {advertisements[currentAdIndex].phoneNumber && (
-                        <a href={`tel:${advertisements[currentAdIndex].phoneNumber}`} title="Call">
-                          <FontAwesomeIcon icon={faPhone} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].emailAddress && (
-                        <a href={`mailto:${advertisements[currentAdIndex].emailAddress}`} title="Email">
-                          <FontAwesomeIcon icon={faEnvelope} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].facebookUrl && (
-                        <a href={advertisements[currentAdIndex].facebookUrl} target="_blank" rel="noopener noreferrer" title="Facebook">
-                          <FontAwesomeIcon icon={faFacebook} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].instagramUrl && (
-                        <a href={advertisements[currentAdIndex].instagramUrl} target="_blank" rel="noopener noreferrer" title="Instagram">
-                          <FontAwesomeIcon icon={faInstagram} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].youtubeUrl && (
-                        <a href={advertisements[currentAdIndex].youtubeUrl} target="_blank" rel="noopener noreferrer" title="YouTube">
-                          <FontAwesomeIcon icon={faYoutube} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].linkedinUrl && (
-                        <a href={advertisements[currentAdIndex].linkedinUrl} target="_blank" rel="noopener noreferrer" title="LinkedIn">
-                          <FontAwesomeIcon icon={faLinkedin} />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-              {advertisements.length > 1 && (
-                <div className="ad-nav">
-                  <button
-                    onClick={() => setCurrentAdIndex((prev) => (prev - 1 + advertisements.length) % advertisements.length)}
-                    className="ad-nav-btn"
-                  >
-                    &lt;
-                  </button>
-                  <button
-                    onClick={() => setCurrentAdIndex((prev) => (prev + 1) % advertisements.length)}
-                    className="ad-nav-btn"
-                  >
-                    &gt;
-                  </button>
-                </div>
-              )}
-            </div>
-
             <div className="description-section">
               <h2>Description</h2>
               <p className="description-text">{property.description}</p>
             </div>
-
-            <div className="details-section">
-              <h2>Property Details</h2>
-              <div className="details-content">
-                <div className="detail-item">
-                  <FontAwesomeIcon icon={faMoneyBill} /> Price: <strong>₹{property.lowestPrice.toLocaleString('en-IN')}/mo</strong>
-                </div>
-                <div className="detail-item">
-                  <FontAwesomeIcon icon={faBed} /> Beds: <strong>{property.totalBeds} ({property.availableBeds} available)</strong>
-                </div>
-                <div className="detail-item">
-                  <FontAwesomeIcon icon={faHome} /> Rooms: <strong>{property.totalRooms} ({property.availableRooms} available)</strong>
-                </div>
-                <div className="detail-item">
-                  <FontAwesomeIcon icon={faCalendarAlt} /> Listed: <strong>{property.createdAt}</strong>
-                </div>
-                <a
-                  href={property.owner.phone !== 'N/A' ? `tel:${property.owner.phone}` : '#'}
-                  className="google-maps-btn w-full"
-                  onClick={(e) => {
-                    if (property.owner.phone === 'N/A') {
-                      e.preventDefault();
-                      alert('Phone number not available');
-                    }
-                  }}
-                >
-                  Contact Owner
-                </a>
-              </div>
-            </div>
-
-            <div className="reviews-section">
-              <h2>Reviews & Ratings</h2>
-              <div className="rating-summary">
-                <p>
-                  <FontAwesomeIcon icon={faStar} /> {ratingStats.averageRating.toFixed(1)} (
-                  {ratingStats.totalRatings} ratings, {comments.length} comments)
-                </p>
-              </div>
-              <div className="rating-form">
-                <h3>Submit Your Rating</h3>
-                <form onSubmit={handleSubmitRating}>
-                  <div className="rating-stars">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <FontAwesomeIcon
-                        key={star}
-                        icon={faStar}
-                        className={newRating >= star ? 'star active' : 'star'}
-                        onClick={() => setNewRating(star)}
-                      />
-                    ))}
-                  </div>
-                  <textarea
-                    value={newReview}
-                    onChange={(e) => setNewReview(e.target.value)}
-                    placeholder="Write your review..."
-                    className="rating-textarea"
-                    required
-                  />
-                  <button type="submit" className="google-maps-btn">
-                    Submit Rating
-                  </button>
-                </form>
-              </div>
-              <div className="comment-form">
-                <h3>Submit a Comment</h3>
-                <form onSubmit={handleSubmitComment}>
-                  <textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Write your comment..."
-                    className="rating-textarea"
-                    required
-                  />
-                  <button type="submit" className="google-maps-btn">
-                    Submit Comment
-                  </button>
-                </form>
-              </div>
-              <div className="ratings-list">
-                {ratings.length > 0 ? (
-                  ratings.map((rating, index) => (
-                    <div key={index} className="rating-item">
-                      <div className="rating-meta">
-                        <span>{rating.userName || 'Anonymous'}</span>
-                        <span>{new Date(rating.createdAt).toLocaleDateString('en-IN')}</span>
-                        <span>
-                          {rating.rating} <FontAwesomeIcon icon={faStar} />
-                        </span>
-                      </div>
-                      <p>{rating.review}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p>No ratings available.</p>
-                )}
-              </div>
-              <div className="comments-list">
-                {comments.length > 0 ? (
-                  comments.map((comment, index) => (
-                    <div key={index} className="comment-item">
-                      <div className="comment-meta">
-                        <span>{comment.userName || 'Anonymous'}</span>
-                        <span>{new Date(comment.createdAt).toLocaleDateString('en-IN')}</span>
-                      </div>
-                      <p>{comment.comment}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p>No comments available.</p>
-                )}
-              </div>
-            </div>
           </div>
 
-          <HotelSidebar
+          <PgHostelSidebar
             propertyId={property.id}
             propertyTitle={property.title}
             owner={property.owner}
@@ -1081,4 +661,3 @@ function PgAndHostelDetails() {
 }
 
 export default PgAndHostelDetails;
-

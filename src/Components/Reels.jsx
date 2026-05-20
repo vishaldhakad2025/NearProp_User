@@ -706,6 +706,7 @@ function Reels() {
               className="reels-video"
               src={reel.videoUrl}
               loop
+              muted={false}
               playsInline
               onClick={(e) => togglePlayPause(e, reel.id)}
             />
@@ -755,12 +756,12 @@ function Reels() {
               </div>
               <div className="action-item" onClick={() => handleShare(reel.id)}>
                 <FontAwesomeIcon icon={faShare} />
-                <span>{reel.shareCount || '0'}</span>
+                {/* <span>{reel.shareCount || '0'}</span> */}
               </div>
-              <div className="action-item" onClick={() => handleSaveToggle(reel.id)}>
+              {/* <div className="action-item" onClick={() => handleSaveToggle(reel.id)}>
                 <FontAwesomeIcon icon={faBookmark} style={{ color: reel.saved ? 'black' : 'black' }} />
                 <span>{reel.saveCount || '0'}</span>
-              </div>
+              </div> */}
             </div>
           </div>
         ))}
@@ -807,7 +808,7 @@ function Reels() {
                           <span className="comment-timestamp">{formatDate(comment.createdAt)}</span>
                         </div>
                         <p className="comment-text">{comment.comment}</p>
-                        <div className="comment-actions">
+                        {/* <div className="comment-actions">
                           <button
                             className="like-btn"
                             onClick={() => handleCommentLike(activeCommentReelId, comment.id)}
@@ -819,7 +820,7 @@ function Reels() {
                             />
                             <span>{comment.likeCount || 0}</span>
                           </button>
-                        </div>
+                        </div> */}
                       </div>
                     </div>
                   ))

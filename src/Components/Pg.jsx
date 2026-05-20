@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -41,18 +41,147 @@ const getValidImage = (images, fallback, baseUrl = "") => {
 const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
   const R = 6371; // Earth's radius in km
   const toRad = (value) => (value * Math.PI) / 180;
-
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
-  
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const distance = R * c;
-  
   return isNaN(distance) ? null : Number(distance.toFixed(2));
+};
+
+// 🔹 Searchable Dropdown Component (exact match with image)
+const SearchableDropdown = ({ options, selected, onSelect, placeholder, disabled = false }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearchTerm("");
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [isOpen]);
+
+  const filtered = options.filter(option =>
+    option.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const allLabel = placeholder.includes("State") ? "All States" :
+                   placeholder.includes("District") ? "All Districts" : "All Cities";
+
+  if (disabled) {
+    return (
+      <div style={{ width: '100%', padding: '10px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.875rem', color: '#a0aec0', backgroundColor: '#f7fafc' }}>
+        {placeholder}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative' }}>
+      <div
+        style={{
+          width: '100%',
+          padding: '10px',
+          border: '1px solid #e2e8f0',
+          borderRadius: '6px',
+          fontSize: '0.875rem',
+          color: '#1a202c',
+          backgroundColor: '#ffffff',
+          cursor: 'pointer',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span style={{ color: selected ? '#1a202c' : '#6c757d' }}>
+          {selected || placeholder}
+        </span>
+        <span style={{ fontSize: '0.8rem' }}>▼</span>
+      </div>
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            background: '#fff',
+            border: '1px solid #ced4da',
+            borderRadius: '6px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 1050,
+            marginTop: '4px',
+          }}
+        >
+          <input
+            type="text"
+            placeholder="Search for an Item..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            autoFocus
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              padding: '10px',
+              border: 'none',
+              borderBottom: '1px solid #ced4da',
+              borderRadius: '6px 6px 0 0',
+              fontSize: '0.875rem'
+            }}
+          />
+          <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
+            <div
+              style={{
+                padding: '10px',
+                cursor: 'pointer',
+                backgroundColor: !selected ? '#f8f9fa' : 'transparent'
+              }}
+              onClick={() => {
+                onSelect("");
+                setIsOpen(false);
+                setSearchTerm("");
+              }}
+            >
+              {allLabel}
+            </div>
+            {filtered.length === 0 ? (
+              <div style={{ padding: '10px', color: '#6c757d' }}>No items found</div>
+            ) : (
+              filtered.map((option) => (
+                <div
+                  key={option}
+                  style={{
+                    padding: '10px',
+                    cursor: 'pointer',
+                    backgroundColor: selected === option ? '#f8f9fa' : 'transparent'
+                  }}
+                  onClick={() => {
+                    onSelect(option);
+                    setIsOpen(false);
+                    setSearchTerm("");
+                  }}
+                >
+                  {option}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 function Pg() {
@@ -81,6 +210,23 @@ function Pg() {
 
   const { pgHostelBaseUrl, apiPrefix } = API_CONFIG;
 
+  // ✅ Track property view
+  const trackPropertyView = async (propertyId) => {
+    try {
+      const url = `${pgHostelBaseUrl}/${apiPrefix}/landlord/property/view/${propertyId}`;
+      await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      // API call is fire-and-forget, no need to handle response
+    } catch (err) {
+      // Silently fail - don't interrupt user experience
+      console.error('Failed to track property view:', err);
+    }
+  };
+
   // ✅ Get user location
   useEffect(() => {
     const getUserLocation = async () => {
@@ -94,12 +240,10 @@ function Pg() {
             return;
           }
         }
-
         if (!navigator.geolocation) {
           setLocationError("Geolocation not supported by browser");
           return;
         }
-
         navigator.geolocation.getCurrentPosition(
           (position) => {
             const location = {
@@ -123,7 +267,6 @@ function Pg() {
         setLocationError("Error fetching location");
       }
     };
-
     getUserLocation();
   }, []);
 
@@ -135,7 +278,6 @@ function Pg() {
         const response = await fetch(url);
         const text = await response.text();
         if (!response.ok) throw new Error(`Error: ${response.status} → ${text}`);
-
         const data = JSON.parse(text);
         const pgProperties = (data.properties || [])
           .filter(pg => pg.type?.toLowerCase() === "pg")
@@ -161,7 +303,6 @@ function Pg() {
             latitude: pg.location?.latitude || null,
             longitude: pg.location?.longitude || null,
           }));
-
         setProperties(pgProperties);
         setFilteredProperties(pgProperties);
       } catch (err) {
@@ -170,32 +311,32 @@ function Pg() {
         setLoading(false);
       }
     };
-
     fetchProperties();
   }, [pgHostelBaseUrl, apiPrefix]);
 
-  // ✅ Fetch districts/states/cities
+  // ✅ Fetch districts/states/cities from new API
   useEffect(() => {
-    const fetchDistricts = async () => {
+    const fetchLocations = async () => {
       try {
-        const res = await axios.get(`${pgHostelBaseUrl}/${apiPrefix}/public/locations`);
-        const districtsData = res.data?.locations || [];
-        setDistricts(districtsData);
+        const res = await axios.get('https://api.nearprop.com/api/property-districts');
+        const locationsData = res.data || []; // array of objects
 
-        const uniqueStates = [...new Set(districtsData.map((d) => d.state))].sort();
+        setDistricts(locationsData);
+
+        const uniqueStates = [...new Set(locationsData.map((d) => d.state).filter(Boolean))].sort();
         setStates(uniqueStates);
       } catch (err) {
         console.error("Failed to load location data:", err.message);
       }
     };
-    fetchDistricts();
-  }, [pgHostelBaseUrl, apiPrefix]);
+    fetchLocations();
+  }, []);
 
   // ✅ Update filtered districts and cities when state changes
   useEffect(() => {
     if (selectedState) {
       const stateData = districts.filter((d) => d.state === selectedState);
-      const uniqueDistricts = [...new Set(stateData.map((d) => d.district))].sort();
+      const uniqueDistricts = [...new Set(stateData.map((d) => d.name))].sort();
       setFilteredDistricts(uniqueDistricts);
 
       const uniqueCities = [...new Set(stateData.map((d) => d.city).filter(Boolean))].sort();
@@ -215,15 +356,11 @@ function Pg() {
   useEffect(() => {
     if (selectedDistrict && selectedState) {
       const districtData = districts.filter(
-        (d) => d.state === selectedState && d.district === selectedDistrict
+        (d) => d.state === selectedState && d.name === selectedDistrict
       );
       const uniqueCities = [...new Set(districtData.map((d) => d.city).filter(Boolean))].sort();
       setFilteredCities(uniqueCities);
       setSelectedCity("");
-    } else if (selectedState) {
-      const stateData = districts.filter((d) => d.state === selectedState);
-      const uniqueCities = [...new Set(stateData.map((d) => d.city).filter(Boolean))].sort();
-      setFilteredCities(uniqueCities);
     }
   }, [selectedDistrict, selectedState, districts]);
 
@@ -236,15 +373,12 @@ function Pg() {
         p.title?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-
     if (filterPriceMin) {
       filtered = filtered.filter((p) => Number(p.price) >= Number(filterPriceMin));
     }
-
     if (filterPriceMax) {
       filtered = filtered.filter((p) => Number(p.price) <= Number(filterPriceMax));
     }
-
     if (filterBedrooms) {
       filtered = filtered.filter((p) => Number(p.bedrooms) >= Number(filterBedrooms));
     }
@@ -273,7 +407,6 @@ function Pg() {
             )
           : null
       }));
-
       filtered.sort((a, b) => {
         if (a.distance === null && b.distance === null) return 0;
         if (a.distance === null) return 1;
@@ -307,12 +440,12 @@ function Pg() {
                       return;
                     }
                   }
-        
+
                   if (!navigator.geolocation) {
                     setLocationError("Geolocation not supported by browser");
                     return;
                   }
-        
+
                   navigator.geolocation.getCurrentPosition(
                     (position) => {
                       const location = {
@@ -346,7 +479,6 @@ function Pg() {
       <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1a202c', marginBottom: '20px', textAlign: 'center' }}>
         PGs
       </div>
-
       <div style={{ display: 'flex', gap: '20px', alignItems: 'stretch' }}>
         {/* Left Section - Property Cards */}
         <div style={{ flex: '3', minHeight: '600px' }}>
@@ -361,6 +493,7 @@ function Pg() {
                   to={`/Pgandhostel/${property.id}`}
                   key={property.id}
                   style={{ textDecoration: 'none' }}
+                  onClick={() => trackPropertyView(property.id)}
                 >
                   <div
                     style={{
@@ -432,7 +565,6 @@ function Pg() {
                         </div>
                       </div>
                     </div>
-
                     <div style={{ padding: '16px', flexGrow: '1', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                       <h2
                         style={{
@@ -528,7 +660,6 @@ function Pg() {
             </div>
           )}
         </div>
-
         {/* Right Sidebar */}
         <div style={{ flex: '1', minWidth: '300px', maxWidth: '360px', minHeight: '600px' }}>
           <aside style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)', height: '100%' }}>
@@ -536,63 +667,41 @@ function Pg() {
               <h3 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#1a202c', marginBottom: '20px' }}>
                 Filter PGs
               </h3>
-
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#4a5568', marginBottom: '8px' }}>
                   State
                 </label>
-                <select
-                  value={selectedState}
-                  onChange={(e) => setSelectedState(e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.875rem', color: '#1a202c' }}
-                >
-                  <option value="">All States</option>
-                  {states.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                <SearchableDropdown
+                  options={states}
+                  selected={selectedState}
+                  onSelect={setSelectedState}
+                  placeholder="-- Select State --"
+                />
               </div>
-
-              <div style={{ marginBottom: '20px' }}>
+              {/* <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#4a5568', marginBottom: '8px' }}>
                   District
                 </label>
-                <select
-                  value={selectedDistrict}
-                  onChange={(e) => setSelectedDistrict(e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.875rem', color: '#1a202c' }}
+                <SearchableDropdown
+                  options={filteredDistricts}
+                  selected={selectedDistrict}
+                  onSelect={setSelectedDistrict}
+                  placeholder="-- Select District --"
                   disabled={!selectedState}
-                >
-                  <option value="">All Districts</option>
-                  {filteredDistricts.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
+                />
+              </div> */}
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#4a5568', marginBottom: '8px' }}>
                   City
                 </label>
-                <select
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.875rem', color: '#1a202c' }}
+                <SearchableDropdown
+                  options={filteredCities}
+                  selected={selectedCity}
+                  onSelect={setSelectedCity}
+                  placeholder="-- Select City --"
                   disabled={!selectedState}
-                >
-                  <option value="">All Cities</option>
-                  {filteredCities.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
-
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#4a5568', marginBottom: '8px' }}>
                   Search by Name
@@ -605,7 +714,6 @@ function Pg() {
                   style={{ width: '100%', padding: '10px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.875rem', color: '#1a202c' }}
                 />
               </div>
-
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#4a5568', marginBottom: '8px' }}>
                   Price Range (₹)
@@ -618,7 +726,7 @@ function Pg() {
                     onChange={(e) => setFilterPriceMin(e.target.value)}
                     style={{ flex: '1', padding: '10px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.875rem', color: '#1a202c' }}
                   />
-                  <span style={{ fontSize: '0.875rem', color: '#4a5568' }}>to</span>
+                  <span style={{ fontSize: '0.875rem', color: '#4a5568', }}>to</span>
                   <input
                     type="number"
                     placeholder="Max Price"
@@ -628,7 +736,6 @@ function Pg() {
                   />
                 </div>
               </div>
-
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#4a5568', marginBottom: '8px' }}>
                   Minimum Bedrooms

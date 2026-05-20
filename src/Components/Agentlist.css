@@ -76,6 +76,13 @@
   text-align: center;
 }
 
+.hrtc-agent-district {
+  font-size: 0.8rem;
+  color: #0072ff;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
 .hrtc-view-profile {
   padding: 8px 16px;
   background: #00bcd4;
@@ -228,19 +235,19 @@
   margin-left: 8px;
 }
 
-/* FIXED: Modal Actions - All 3 buttons in same row, same size */
+/* Modal Actions */
 .modal-actions {
   display: flex;
   justify-content: space-between;
   width: 100%;
   margin-bottom: 15px;
-  gap: 10px; /* Equal spacing between buttons */
-  flex-wrap: wrap; /* Allow wrapping on very small screens */
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .action-btn {
-  flex: 1; /* Equal width */
-  padding: 12px 16px; /* Uniform padding for same size */
+  flex: 1;
+  padding: 12px 16px;
   border: none;
   border-radius: 8px;
   color: #fff;
@@ -253,28 +260,26 @@
   font-size: 0.9rem;
   text-decoration: none;
   box-sizing: border-box;
-  min-height: 42px; /* Fixed minimum height for uniformity */
-  max-height: 42px; /* Fixed maximum height */
+  min-height: 42px;
+  max-height: 42px;
   text-align: center;
-  margin: 0; /* No extra margins */
+  margin: 0;
 }
 
 .action-btn:hover {
-  transform: scale(1.02); /* Slight hover effect */
+  transform: scale(1.02);
 }
 
-/* Button Colors */
 .email-btn {
-  background: #d32f2f; /* Red for Email */
-  /* REMOVED: margin-top: 16px; - This was causing the issue! */
+  background: #d32f2f;
 }
 
 .call-btn {
-  background: #388e3c; /* Green for Call */
+  background: #388e3c;
 }
 
 .whatsapp-btn {
-  background: #25d366; /* WhatsApp Green */
+  background: #25d366;
 }
 
 .modal-tabs {
@@ -384,39 +389,62 @@
   background: #ccc;
 }
 
-/* Search Bar */
+/* Search Bar with Searchable Dropdowns */
 .agentlist-searchbar {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 10px;
   margin-bottom: 20px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.search-select {
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
+/* Select Wrapper for react-select */
+.select-wrapper {
   flex: 1;
-  min-width: 120px;
-  max-width: 200px;
-  font-size: 0.9rem;
+  min-width: 180px;
+  max-width: 280px;
+}
+
+.react-select-container {
+  width: 100%;
 }
 
 .my-search-btn {
-  padding: 8px 16px;
+  padding: 10px 20px;
   background: #0072ff;
   color: #fff;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 0.9rem;
-  min-width: 80px;
+  min-width: 100px;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  height: 42px;
+}
+
+.my-search-btn:hover {
+  background: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 114, 255, 0.3);
 }
 
 .my-search-btn:disabled {
   background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.no-results {
+  text-align: center;
+  color: #666;
+  font-size: 1rem;
+  padding: 40px;
+  grid-column: 1 / -1;
 }
 
 /* Mobile Slider */
@@ -501,6 +529,10 @@
   .agentlist-cards {
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   }
+  
+  .agentlist-searchbar {
+    max-width: 90%;
+  }
 }
 
 @media (max-width: 768px) {
@@ -516,7 +548,7 @@
 
   .hrtc-agent-card {
     padding: 15px;
-    height: 280px;
+    min-height: 300px;
   }
 
   .hrtc-agent-img {
@@ -550,14 +582,19 @@
 
   .agentlist-searchbar {
     flex-direction: column;
-    align-items: center;
-    gap: 8px;
+    align-items: stretch;
+    gap: 10px;
+    padding: 0 15px;
   }
 
-  .search-select, .my-search-btn {
+  .select-wrapper {
+    max-width: 100%;
+    min-width: 100%;
+  }
+
+  .my-search-btn {
     width: 100%;
-    max-width: 280px;
-    min-width: unset;
+    min-width: 100%;
   }
 
   .modal-content {
@@ -614,7 +651,6 @@
     font-size: 0.75rem;
   }
 
-  /* FIXED: Responsive buttons - Stack on small screens but same size */
   .modal-actions {
     gap: 8px;
     margin-bottom: 12px;
@@ -709,9 +745,8 @@
     font-size: 0.7rem;
   }
 
-  /* FIXED: On very small screens, buttons stack vertically but remain equal */
   .modal-actions {
-    flex-direction: column; /* Stack vertically on tiny screens */
+    flex-direction: column;
     gap: 6px;
     margin-bottom: 10px;
   }
@@ -721,7 +756,7 @@
     font-size: 0.8rem;
     min-height: 38px;
     max-height: 38px;
-    width: 100%; /* Full width when stacked */
+    width: 100%;
   }
 
   .tab-item {

@@ -134,7 +134,7 @@ const FranchiseForm = ({ isVisible, onClose }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-4">
-          <h5 className="text-lg font-semibold text-dark">Franchise Request</h5>
+          <h5 className="text-lg font-semibold text-dark">Franchise Reques</h5>
           <button className="text-2xl text-dark" onClick={onClose}>×</button>
         </div>
         <div>

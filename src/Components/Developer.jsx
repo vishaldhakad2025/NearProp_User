@@ -12,6 +12,7 @@ import {
   faComment,
   faMapMarkerAlt as faMapMarkerAltSolid,
   faStar as faSolidStar,
+  faShareAlt,
 } from "@fortawesome/free-solid-svg-icons";
 import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
 import {
@@ -23,11 +24,9 @@ import {
   FaMapMarkerAlt,
   FaHome,
   FaCheckCircle,
-  FaTools,
+  FaEye,
 } from "react-icons/fa";
 import villa1 from "../assets/villa-1.avif";
-import villa2 from "../assets/villa-2.avif";
-import villa3 from "../assets/villa-3.avif";
 import axios from "axios";
 
 const baseUrl = "https://api.nearprop.com";
@@ -47,7 +46,9 @@ function Developer() {
   const [reviewsError, setReviewsError] = useState(null);
   const [averageRating, setAverageRating] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
-  const navigate = useNavigate();
+
+  // Share modal state
+  const [shareDeveloper, setShareDeveloper] = useState(null);
 
   // Location filters
   const [states, setStates] = useState([]);
@@ -56,88 +57,13 @@ function Developer() {
   const [selectedState, setSelectedState] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
 
-  // Dummy data for developers
-  const dummyDevelopers = [
-    {
-      id: 1,
-      name: "John Doe",
-      profileImageUrl: "https://img.freepik.com/free-photo/medium-shot-man-working-as-real-estate-agent_23-2151064999.jpg",
-      mobileNumber: "9876543210",
-      email: "john.doe@modernhouse.com",
-      state: "California",
-      district: "Los Angeles",
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      profileImageUrl: "https://img.freepik.com/free-photo/medium-shot-man-working-as-real-estate-agent_23-2151064999.jpg",
-      mobileNumber: "8765432109",
-      email: "jane.smith@modernhouse.com",
-      state: "Florida",
-      district: "Miami",
-    },
-    {
-      id: 3,
-      name: "Mike Johnson",
-      profileImageUrl: "https://img.freepik.com/free-photo/medium-shot-man-working-as-real-estate-agent_23-2151064999.jpg",
-      mobileNumber: "7654321098",
-      email: "mike.johnson@modernhouse.com",
-      state: "New York",
-      district: "New York City",
-    },
-  ];
+  // Searchable dropdown state
+  const [stateSearch, setStateSearch] = useState("");
+  const [districtSearch, setDistrictSearch] = useState("");
+  const [showStateDropdown, setShowStateDropdown] = useState(false);
+  const [showDistrictDropdown, setShowDistrictDropdown] = useState(false);
 
-  // Dummy data for listings
-  const dummyListings = [
-    {
-      id: 1,
-      title: "Luxury Villa",
-      price: "Rs1,200,000",
-      image: villa1,
-      address: "Los Angeles, California",
-      area: 2000,
-      type: "Villa",
-      status: "FOR_SALE",
-    },
-    {
-      id: 2,
-      title: "Modern Apartment",
-      price: "Rs850,000",
-      image: villa2,
-      address: "Miami, Florida",
-      area: 1500,
-      type: "Apartment",
-      status: "FOR_SALE",
-    },
-    {
-      id: 3,
-      title: "Cozy Cottage",
-      price: "Rs600,000",
-      image: villa3,
-      address: "New York City, New York",
-      area: 1200,
-      type: "Cottage",
-      status: "FOR_SALE",
-    },
-  ];
-
-  // Dummy data for reviews
-  const dummyReviews = [
-    {
-      id: 1,
-      user: { name: "Alice" },
-      rating: 4,
-      comment: "Great service and beautiful properties!",
-      createdAt: "2025-09-01",
-    },
-    {
-      id: 2,
-      user: { name: "Bob" },
-      rating: 5,
-      comment: "Highly recommend this developer!",
-      createdAt: "2025-09-10",
-    },
-  ];
+  const navigate = useNavigate();
 
   const getAuthData = () => {
     const authData = localStorage.getItem("authData");
@@ -157,67 +83,64 @@ function Developer() {
     return authData ? authData.token : null;
   };
 
-  // Check authentication and show toast if not logged in
+  // Check authentication
   useEffect(() => {
     const token = getToken();
     if (!token) {
       toast.warn("Please log in to view developers.", {
         position: "top-right",
         autoClose: 2000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        onClose: () => {
-          navigate("/login", { state: { from: "/developer" } });
-        },
+        onClose: () => navigate("/login", { state: { from: "/developer" } }),
       });
     }
   }, [navigate]);
 
-  // Set dummy data on mount
+  // Fetch developers from public API
   useEffect(() => {
-    setDevelopers(dummyDevelopers);
-    setFilteredDevelopers(dummyDevelopers);
-    setLoading(false);
-    setAgentListings(dummyListings); // Set dummy listings
-    setReviews(dummyReviews); // Set dummy reviews
-    setAverageRating(
-      dummyReviews.reduce((sum, review) => sum + review.rating, 0) /
-        dummyReviews.length || 0
-    );
-    setReviewCount(dummyReviews.length);
-  }, []);
-
-  // Fetch districts/states
-  useEffect(() => {
-    const fetchDistricts = async () => {
+    const fetchDevelopers = async () => {
       try {
-        const token = getToken();
-        if (!token) return;
+        setLoading(true);
+        const res = await axios.get(`${baseUrl}/${apiPrefix}/public/developers`);
 
-        const res = await axios.get(`${baseUrl}/${apiPrefix}/property-districts`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        if (res.data.success) {
+          const devs = res.data.data.filter(dev =>
+            dev.roles && dev.roles.includes("DEVELOPER")
+          );
 
-        const districtsData = res.data || [];
-        setDistricts(districtsData);
+          setDevelopers(devs);
+          setFilteredDevelopers(devs);
 
-        const uniqueStates = [...new Set(districtsData.map((d) => d.state))];
-        setStates(uniqueStates);
+          // Extract unique states and districts
+          const uniqueStates = [...new Set(devs.map(d => d.state).filter(Boolean))];
+          setStates(uniqueStates.sort());
+
+          const allDistricts = devs.map(d => ({
+            state: d.state,
+            district: d.district
+          })).filter(d => d.state && d.district);
+          setDistricts(allDistricts);
+        } else {
+          setError("Failed to fetch developers");
+        }
       } catch (err) {
-        console.error("Failed to load location data:", err.message);
+        console.error("Error fetching developers:", err);
+        setError("Failed to load developers. Please try again later.");
+      } finally {
+        setLoading(false);
       }
     };
-    fetchDistricts();
+
+    fetchDevelopers();
   }, []);
 
   // Update filtered districts when state changes
   useEffect(() => {
     if (selectedState) {
-      const filtered = districts.filter((d) => d.state === selectedState);
-      setFilteredDistricts(filtered);
+      const filtered = districts
+        .filter(d => d.state === selectedState)
+        .map(d => d.district)
+        .filter(Boolean);
+      setFilteredDistricts([...new Set(filtered)].sort());
       setSelectedDistrict("");
     } else {
       setFilteredDistricts([]);
@@ -230,7 +153,8 @@ function Developer() {
 
     if (searchQuery) {
       filtered = filtered.filter((dev) =>
-        dev.name?.toLowerCase().includes(searchQuery.toLowerCase())
+        dev.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        dev.mobileNumber?.includes(searchQuery)
       );
     }
 
@@ -248,13 +172,8 @@ function Developer() {
     setSelectedDeveloper(developer);
     setActiveTab("about");
     document.body.style.overflow = "hidden";
-    // Filter listings and reviews based on selected developer
-    setAgentListings(dummyListings.filter((listing) => listing.address.includes(developer.state)));
-    setReviews(dummyReviews);
-    setAverageRating(
-      dummyReviews.reduce((sum, review) => sum + review.rating, 0) / dummyReviews.length || 0
-    );
-    setReviewCount(dummyReviews.length);
+    fetchDeveloperListings(developer.id);
+    fetchDeveloperReviews(developer.id);
   };
 
   const closeDeveloperModal = () => {
@@ -266,7 +185,139 @@ function Developer() {
     setReviewCount(0);
   };
 
-  // Do not render content if not authenticated
+  const openShareModal = (developer) => {
+    setShareDeveloper(developer);
+  };
+
+  const closeShareModal = () => {
+    setShareDeveloper(null);
+  };
+
+  const fetchDeveloperListings = async (developerId) => {
+    try {
+      const token = getToken();
+      if (!token) return;
+
+      const res = await fetch(`${baseUrl}/${apiPrefix}/properties`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) throw new Error("Failed to fetch properties");
+
+      const data = await res.json();
+      const filteredListings = (data.data || []).filter(
+        (property) => property.owner?.id === developerId
+      );
+      setAgentListings(filteredListings);
+    } catch (err) {
+      console.error("Failed to fetch listings:", err);
+      setAgentListings([]);
+    }
+  };
+
+  const fetchDeveloperReviews = async (developerId) => {
+    try {
+      setReviewsLoading(true);
+      setReviewsError(null);
+      const token = getToken();
+      if (!token) return;
+
+      const propertiesRes = await fetch(`${baseUrl}/${apiPrefix}/properties`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!propertiesRes.ok) throw new Error("Failed to fetch properties");
+
+      const propertiesData = await propertiesRes.json();
+      const developerProperties = (propertiesData.data || []).filter(
+        (property) => property.owner?.id === developerId
+      );
+
+      let allReviews = [];
+      let totalRating = 0;
+      let totalReviews = 0;
+
+      for (const property of developerProperties) {
+        const reviewsRes = await fetch(
+          `${baseUrl}/${apiPrefix}/reviews/property/${property.id}?page=0&size=10&sortBy=createdAt&direction=DESC`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (reviewsRes.ok) {
+          const reviewsData = await reviewsRes.json();
+          const reviews = reviewsData.content || [];
+          allReviews = [...allReviews, ...reviews];
+          totalRating += reviews.reduce((sum, review) => sum + (review.rating || 0), 0);
+          totalReviews += reviews.length;
+        }
+      }
+
+      setReviews(allReviews);
+      setReviewCount(totalReviews);
+      setAverageRating(totalReviews > 0 ? (totalRating / totalReviews).toFixed(1) : 0);
+      setReviewsLoading(false);
+    } catch (err) {
+      console.error("Failed to fetch reviews:", err);
+      setReviewsError("Failed to load reviews. Please try again later.");
+      setReviewsLoading(false);
+    }
+  };
+
+  // Filtered lists for searchable dropdown
+  const filteredStates = states.filter(s =>
+    s.toLowerCase().includes(stateSearch.toLowerCase())
+  );
+
+  const filteredDistrictList = filteredDistricts.filter(d =>
+    d.toLowerCase().includes(districtSearch.toLowerCase())
+  );
+
+  // Generate shareable URL
+  const generateShareUrl = (developerId) => {
+  return `${window.location.origin}/developer#${developerId}`;
+};
+
+useEffect(() => {
+  if (window.location.hash) {
+    const hashId = window.location.hash.substring(1); // remove #
+    if (developers.length > 0) {
+      const dev = developers.find(d => d.id === hashId);
+      if (dev) {
+        openDeveloperModal(dev);
+        // Optional: clean hash after opening
+        // window.history.replaceState({}, document.title, "/developer");
+      }
+    }
+  }
+}, [developers]);
+
+
+  // Handle shared link opening
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const devId = params.get("dev");
+    if (devId && developers.length > 0) {
+      const dev = developers.find(d => d.id === devId);
+      if (dev) {
+        openDeveloperModal(dev);
+        // Clean URL after opening
+        window.history.replaceState({}, document.title, "/developer");
+      }
+    }
+  }, [developers]);
+
+  // If not authenticated, only show toast
   const token = getToken();
   if (!token) {
     return <ToastContainer />;
@@ -285,7 +336,32 @@ function Developer() {
 
           <div className="agents-grid">
             {filteredDevelopers.map((developer) => (
-              <div key={developer.id} className="nearprop-agent-card">
+              <div key={developer.id} className="nearprop-agent-card" style={{ position: "relative" }}>
+                {/* Share Icon - Top Right */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "10px",
+                    right: "10px",
+                    background: "rgba(255,255,255,0.8)",
+                    borderRadius: "50%",
+                    width: "36px",
+                    height: "36px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    zIndex: 10,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openShareModal(developer);
+                  }}
+                >
+                  <FontAwesomeIcon icon={faShareAlt} style={{ fontSize: "18px", color: "#3498db" }} />
+                </div>
+
                 <img
                   src={
                     developer.profileImageUrl ||
@@ -299,16 +375,29 @@ function Developer() {
                     <h2 className="nearprop-agent-name">
                       {developer.name || "Unknown Developer"}
                     </h2>
-                    <div className="nearprop-stars">★ ★ ★ ☆ ☆</div>
+                    <div className="nearprop-stars">★ ★ ★ ★ ☆</div>
                   </div>
                   <p className="nearprop-designation">
-                    Developer at <a href="#">Modern House Real Estate</a>
+                    Developer • NearProp Verified
                   </p>
+
+                  {/* State & District Display */}
+                  {(developer.state || developer.district) && (
+                    <div style={{ margin: "10px 0", color: "#555", fontSize: "14px", padding: "0 16px", display: "flex", alignItems: "center", gap: "6px" }}>
+                                          <FaMapMarkerAlt style={{ color: "#e74c3c", flexShrink: 0 }} />
+                                          <span>
+                                            {developer.state && <span>{developer.state}</span>}
+                                            {developer.state && developer.district && <span>, </span>}
+                                            {developer.district && <span>{developer.district}</span>}
+                                          </span>
+                                        </div>
+                  )}
+
                   <div className="nearprop-details">
                     <div className="nearprop-row">
                       <span>Call</span>
                       <p>
-                        <a href={`tel:${developer.mobileNumber || "9876543210"}`}>
+                        <a href={`tel:${developer.mobileNumber}`}>
                           <FaPhoneAlt className="contact-icon" />
                         </a>
                       </p>
@@ -318,7 +407,7 @@ function Developer() {
                       <span>WhatsApp</span>
                       <p>
                         <a
-                          href={`https://wa.me/${developer.mobileNumber || "9876543210"}`}
+                          href={`https://wa.me/${developer.mobileNumber.replace(/\+/g, "")}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -327,18 +416,24 @@ function Developer() {
                       </p>
                     </div>
                     <hr />
-                    <div className="nearprop-row">
-                      <span>Email</span>
-                      <p>
-                        <a href={`mailto:${developer.email || "john.doe@modernhouse.com"}`}>
-                          <FaEnvelope className="contact-icon" />
-                        </a>
-                      </p>
-                    </div>
-                    <hr />
+                    {developer.email && (
+                      <>
+                        <div className="nearprop-row">
+                          <span>Email</span>
+                          <p>
+                            <a href={`mailto:${developer.email}`}>
+                              <FaEnvelope className="contact-icon" />
+                            </a>
+                          </p>
+                        </div>
+                        <hr />
+                      </>
+                    )}
                     <div className="nearprop-row">
                       <span>Profile</span>
-                      <label onClick={() => openDeveloperModal(developer)}>View</label>
+                      <label onClick={() => openDeveloperModal(developer)} style={{ cursor: "pointer" }}>
+                        <FaEye style={{ fontSize: "18px", color: "#3498db" }} />
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -353,58 +448,151 @@ function Developer() {
             <h3>Find Developer</h3>
             <input
               type="text"
-              placeholder="Enter developer name"
+              placeholder="Enter developer name or mobile"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <div className="filter-group">
+
+            {/* State Dropdown */}
+            <div className="filter-group position-relative">
               <label className="filter-label">State</label>
-              <select
-                value={selectedState}
-                onChange={(e) => setSelectedState(e.target.value)}
-                className="filter-select"
+              <div
+                className="filter-select d-flex align-items-center justify-content-between cursor-pointer"
+                onClick={() => setShowStateDropdown(!showStateDropdown)}
               >
-                <option value="">All States</option>
-                {states.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label className="filter-label">District</label>
-              <select
-                value={selectedDistrict}
-                onChange={(e) => setSelectedDistrict(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All Districts</option>
-                {filteredDistricts.map((d) => (
-                  <option key={d.district} value={d.district}>
-                    {d.district}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button className="search-btn" onClick={applyFilters}>Search Developer</button>
-          </div>
-          <div className="widget">
-            <h3>Recently Viewed</h3>
-            {[villa1, villa2, villa3].map((img, index) => (
-              <div className="recent-item" key={index}>
-                <img src={img} alt="Villa" />
-                <div>
-                  <p>Sample Villa</p>
-                  <span>Rs999,000</span>
-                </div>
+                <span>{selectedState || "Please select"}</span>
+                <span>▼</span>
               </div>
-            ))}
+              {showStateDropdown && (
+                <div className="position-absolute w-100 bg-white border rounded shadow mt-1" style={{ zIndex: 1000, maxHeight: "300px", overflowY: "auto" }}>
+                  <input
+                    type="text"
+                    placeholder="Search state..."
+                    value={stateSearch}
+                    onChange={(e) => setStateSearch(e.target.value)}
+                    className="filter-input border-0 border-bottom"
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div>
+                    {filteredStates.length === 0 ? (
+                      <div className="p-2 text-muted">No states found</div>
+                    ) : (
+                      filteredStates.map((s) => (
+                        <div
+                          key={s}
+                          className="p-2 hover-bg-light cursor-pointer"
+                          onClick={() => {
+                            setSelectedState(s);
+                            setShowStateDropdown(false);
+                            setStateSearch("");
+                          }}
+                        >
+                          {s}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* District Dropdown */}
+            <div className="filter-group position-relative">
+              <label className="filter-label">District</label>
+              <div
+                className="filter-select d-flex align-items-center justify-content-between cursor-pointer"
+                onClick={() => setShowDistrictDropdown(!showDistrictDropdown)}
+                style={{ opacity: selectedState ? 1 : 0.6, pointerEvents: selectedState ? "auto" : "none" }}
+              >
+                <span>{selectedDistrict || "Please select"}</span>
+                <span>▼</span>
+              </div>
+              {showDistrictDropdown && (
+                <div className="position-absolute w-100 bg-white border rounded shadow mt-1" style={{ zIndex: 1000, maxHeight: "300px", overflowY: "auto" }}>
+                  <input
+                    type="text"
+                    placeholder="Search district..."
+                    value={districtSearch}
+                    onChange={(e) => setDistrictSearch(e.target.value)}
+                    className="filter-input border-0 border-bottom"
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div>
+                    {filteredDistrictList.length === 0 ? (
+                      <div className="p-2 text-muted">No districts found</div>
+                    ) : (
+                      filteredDistrictList.map((d) => (
+                        <div
+                          key={d}
+                          className="p-2 hover-bg-light cursor-pointer"
+                          onClick={() => {
+                            setSelectedDistrict(d);
+                            setShowDistrictDropdown(false);
+                            setDistrictSearch("");
+                          }}
+                        >
+                          {d}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button className="search-btn" onClick={applyFilters}>
+              Search Developer
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Full-Page Modal */}
+      {/* Share Modal */}
+      {shareDeveloper && (
+        <div className="agentlist-modal-fullpage" style={{ zIndex: 9999 }}>
+          <div className="agentlist-modal-content" style={{ maxWidth: "500px" }}>
+            <div className="agentlist-modal-header">
+              <span className="agentlist-modal-title">Share Developer Profile</span>
+              <span className="agentlist-modal-close" onClick={closeShareModal}>
+                &times;
+              </span>
+            </div>
+            <div style={{ padding: "30px", textAlign: "center" }}>
+              <p>Copy this link to share:</p>
+              <div style={{
+                background: "#f1f1f1",
+                padding: "12px",
+                borderRadius: "8px",
+                wordBreak: "break-all",
+                margin: "15px 0",
+                fontFamily: "monospace",
+              }}>
+                {generateShareUrl(shareDeveloper.id)}
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(generateShareUrl(shareDeveloper.id));
+                  toast.success("Link copied to clipboard!");
+                }}
+                style={{
+                  padding: "10px 20px",
+                  background: "#3498db",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                Copy Link
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Page Modal (Profile) */}
       {selectedDeveloper && (
         <div className="agentlist-modal-fullpage">
           <div className="agentlist-modal-content">
@@ -427,10 +615,10 @@ function Developer() {
               <div className="agentlist-modal-info">
                 <h2>
                   {selectedDeveloper.name || "Unknown Developer"}{" "}
-                  <FaCheckCircle className="agentlist-verified" />
+                  <FaCheckCircle className="agentlist-verified" style={{ color: "#3498db" }} />
                 </h2>
                 <p className="agentlist-role-text">
-                  Developer at Modern House Real Estate
+                  Real Estate Developer
                 </p>
                 <div className="agentlist-rating">
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -441,23 +629,31 @@ function Developer() {
                   ))}
                   <span>{averageRating} ({reviewCount} Reviews)</span>
                 </div>
+                <div style={{ margin: "10px 0", color: "#555", fontSize: "15px" }}>
+                  <FaMapMarkerAlt style={{ marginRight: "8px", color: "#e74c3c" }} />
+                  {selectedDeveloper.state && <span>{selectedDeveloper.state}</span>}
+                  {selectedDeveloper.state && selectedDeveloper.district && <span>, </span>}
+                  {selectedDeveloper.district && <span>{selectedDeveloper.district}</span>}
+                </div>
               </div>
             </div>
 
             {/* Action Buttons */}
             <div className="agentlist-actions">
-              <a href={`mailto:${selectedDeveloper.email || "john.doe@modernhouse.com"}`}>
-                <button className="agentlist-email">
-                  <FaEnvelope /> Email
-                </button>
-              </a>
-              <a href={`tel:${selectedDeveloper.mobileNumber || "9876543210"}`}>
+              {selectedDeveloper.email && (
+                <a href={`mailto:${selectedDeveloper.email}`}>
+                  <button className="agentlist-email">
+                    <FaEnvelope /> Email
+                  </button>
+                </a>
+              )}
+              <a href={`tel:${selectedDeveloper.mobileNumber}`}>
                 <button className="agentlist-call">
                   <FaPhoneAlt /> Call
                 </button>
               </a>
               <a
-                href={`https://wa.me/${selectedDeveloper.mobileNumber || "9876543210"}`}
+                href={`https://wa.me/${selectedDeveloper.mobileNumber.replace(/\+/g, "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -491,11 +687,18 @@ function Developer() {
 
             <div className="agentlist-tab-content">
               {activeTab === "about" && (
-                <div>
-                  <h3>Details</h3>
-                  <p><FaBuilding /> Company: Modern House Real Estate</p>
-                  <p><FaMapMarkerAlt /> Address: {selectedDeveloper.state || "Unknown"}, {selectedDeveloper.district || "Unknown"}</p>
-                  <p><FaHome /> Properties: {agentListings.length || 0} listings</p>
+                <div style={{ padding: "20px" }}>
+                  <h3>Contact Details</h3>
+                  <p><FaPhoneAlt style={{ marginRight: "10px" }} /> {selectedDeveloper.mobileNumber}</p>
+                  {selectedDeveloper.email && (
+                    <p><FaEnvelope style={{ marginRight: "10px" }} /> {selectedDeveloper.email}</p>
+                  )}
+                  <p><FaMapMarkerAlt style={{ marginRight: "10px" }} />
+                    {selectedDeveloper.district && `${selectedDeveloper.district}, `}
+                    {selectedDeveloper.state || "Madhya Pradesh"}
+                  </p>
+                  <p><FaBuilding style={{ marginRight: "10px" }} /> Registered Developer on NearProp</p>
+                  <p><FaHome /> Properties: {agentListings.length} listings</p>
                 </div>
               )}
 
@@ -512,7 +715,7 @@ function Developer() {
                   ) : reviewsError ? (
                     <div className="error-message">{reviewsError}</div>
                   ) : reviews.length === 0 ? (
-                    <div className="no-results">No reviews yet for this developer.</div>
+                    <div className="no-results">No reviews yet for this developer's properties.</div>
                   ) : (
                     <div className="reviews-list">
                       {reviews.map((review) => (
@@ -550,101 +753,134 @@ function Developer() {
                   ) : (
                     <div className="listing-cards">
                       {agentListings.map((property) => {
-                        const propertyTypeLower = property?.type.toLowerCase();
+                        const propertyTypeLower = property?.type?.toLowerCase();
                         const hideResidentialDetails = propertyTypeLower === "plot" || propertyTypeLower === "commercial";
                         return (
                           <Link
                             to={`/propertySell/${property.id}`}
-                            key={property.id || property._id}
+                            key={property.id}
                             className="property-card-link"
                           >
-                            <div className="property-card">
-                              <div className="property-image-container">
+                            <div className="landing-property-card">
+                              <div className="landing-image-container">
                                 <img
-                                  src={property.image || villa1}
+                                  src={property.imageUrls?.[0] || villa1}
                                   alt={property.title || "Property"}
-                                  className="property-card-image"
+                                  className="landing-property-image"
                                   onError={(e) => {
                                     e.target.src = villa1;
                                   }}
                                 />
                                 <span
-                                  className={`property-label ${
-                                    property.status
-                                      ? property.status.toLowerCase().replace("_", "-")
-                                      : "for-sale"
-                                  }`}
+                                  className={`landing-label landing-${property.status?.toLowerCase().replace("_", "-") || "for-sale"}`}
+                                  style={{
+                                    position: "absolute",
+                                    top: 10,
+                                    left: 10,
+                                    padding: "4px 10px",
+                                    borderRadius: 6,
+                                    fontSize: 12,
+                                    fontWeight: "bold",
+                                    zIndex: 10,
+                                  }}
                                 >
                                   {property.status?.replace("_", " ") || "For Sale"}
                                 </span>
-                                <div className="property-overlay-icons">
+                                <div className="landing-overlay-icons-left">
+                                  ₹{property.price ? Number(property.price).toLocaleString("en-IN") : "N/A"}
+                                  <br />
                                   <span>
-                                    <FontAwesomeIcon icon={faComment} />{" "}
-                                    {property.reelCount || 0}
+                                    ₹{property.price && property.area
+                                      ? Math.round(Number(property.price) / Number(property.area))
+                                      : "N/A"} /Sq Ft
                                   </span>
-                                </div>
-                                <div className="property-overlay-icons-left">
-                                  <div>
-                                    ₹
-                                    {property.price
-                                      ? Number(property.price).toLocaleString("en-IN")
-                                      : "N/A"}
-                                    <br />
-                                    <span>
-                                      ₹
-                                      {property.price && property.area
-                                        ? Math.round(
-                                            Number(property.price) / Number(property.area)
-                                          )
-                                        : "N/A"}
-                                      /Sq Ft
-                                    </span>
-                                  </div>
                                 </div>
                               </div>
 
-                              <div className="property-card-info">
-                                <h2 className="property-title">
-                                  {property.title || "Untitled Property"}
-                                </h2>
-                                <div className="property-address">
-                                  <FontAwesomeIcon icon={faMapMarkerAltSolid} />{" "}
-                                  {property.address || "No Address"}
+                              <div className="landing-property-info" style={{
+                                padding: "15px",
+                                minHeight: "300px",
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "space-between",
+                              }}>
+                                <div>
+                                  <h2 style={{
+                                    fontSize: "1.125rem",
+                                    fontWeight: "600",
+                                    color: "#1a202c",
+                                    margin: "0 0 10px",
+                                    lineHeight: "1.5",
+                                  }}>
+                                    {property.title || "Untitled Property"}
+                                  </h2>
+                                  <div style={{
+                                    fontSize: "0.875rem",
+                                    color: "#4a5568",
+                                    marginBottom: "10px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "6px",
+                                  }}>
+                                    {/* <FontAwesomeIcon icon={faMapMarkerAltSolid} /> */}
+                                    <span style={{ lineHeight: "1.4" }}>
+                                      {property.address || "No Address"}
+                                    </span>
+                                  </div>
+
+                                  <div style={{
+                                    display: "flex",
+                                    gap: "12px",
+                                    fontSize: "0.875rem",
+                                    color: "#4a5568",
+                                    marginBottom: "10px",
+                                    flexWrap: "wrap",
+                                  }}>
+                                    {!hideResidentialDetails && (
+                                      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                        <FontAwesomeIcon icon={faBed} /> {property.bedrooms || 0}
+                                      </span>
+                                    )}
+                                    {!hideResidentialDetails && (
+                                      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                        <FontAwesomeIcon icon={faShower} /> {property.bathrooms || 0}
+                                      </span>
+                                    )}
+                                    {!hideResidentialDetails && (
+                                      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                        <FontAwesomeIcon icon={faCar} /> {property.garages || 0}
+                                      </span>
+                                    )}
+                                    <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                      {property.area || "N/A"} {property.sizePostfix || "Sq Ft"}
+                                    </span>
+                                  </div>
+
+                                  <div style={{
+                                    fontSize: "0.875rem",
+                                    fontWeight: "600",
+                                    color: "#3182ce",
+                                    marginBottom: "10px",
+                                  }}>
+                                    <strong>{property.type || "Unknown"}</strong>
+                                  </div>
                                 </div>
 
-                                <div className="property-details">
-                                  {!hideResidentialDetails && (
-                                    <span>
-                                      <FontAwesomeIcon icon={faBed} /> {property.bedrooms || 0}
-                                    </span>
-                                  )}
-                                  {!hideResidentialDetails && (
-                                    <span>
-                                      <FontAwesomeIcon icon={faShower} />{" "}
-                                      {property.bathrooms || 0}
-                                    </span>
-                                  )}
-                                  {!hideResidentialDetails && (
-                                    <span>
-                                      <FontAwesomeIcon icon={faCar} /> {property.garages || 0}
-                                    </span>
-                                  )}
-                                  <span>
-                                    {property.area || "N/A"} {property.sizePostfix || "Sq Ft"}
+                                <div style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  fontSize: "0.75rem",
+                                  color: "#4a5568",
+                                  borderTop: "1px solid #e2e8f0",
+                                  paddingTop: "10px",
+                                  flexWrap: "wrap",
+                                  gap: "8px",
+                                }}>
+                                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                    <FontAwesomeIcon icon={faUser} /> {selectedDeveloper.name || "Unknown"}
                                   </span>
-                                </div>
-
-                                <div className="property-type">
-                                  <strong>{property.type || "Unknown"}</strong>
-                                </div>
-
-                                <div className="property-footer">
-                                  <span>
-                                    <FontAwesomeIcon icon={faUser} />{" "}
-                                    {selectedDeveloper.name || "Unknown"}
-                                  </span>
-                                  <span>
-                                    <FontAwesomeIcon icon={faPaperclip} />{" "}
+                                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                    <FontAwesomeIcon icon={faPaperclip} />
                                     {property.createdAt
                                       ? new Date(property.createdAt).toLocaleDateString()
                                       : "N/A"}
@@ -663,7 +899,14 @@ function Developer() {
           </div>
         </div>
       )}
+
       <ToastContainer />
+
+      {/* Inline CSS */}
+      <style jsx>{`
+        .cursor-pointer { cursor: pointer; }
+        .hover-bg-light:hover { background-color: #f8f9fa; }
+      `}</style>
     </>
   );
 }

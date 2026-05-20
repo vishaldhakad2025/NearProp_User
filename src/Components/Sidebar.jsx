@@ -5,6 +5,7 @@ import { faWhatsapp, faInstagram, faFacebookF, faYoutube, faTwitter, faLinkedinI
 import axios from 'axios';
 import { Client } from '@stomp/stompjs';
 import { format } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 
 // API configuration for backend and WebSocket
 const API_CONFIG = {
@@ -69,8 +70,8 @@ const Sidebar = ({
   const userName = isGuest ? 'Guest' : (localStorage.getItem('authData') ? JSON.parse(localStorage.getItem('authData')).name : `User ${userId}`);
   const messagesEndRef = useRef(null);
 
-const planName = (propertydata?.subscriptionPlanName || "").toString().trim().toLowerCase();
-const isBasicPlan = planName.startsWith("basic");
+  const planName = (propertydata?.subscriptionPlanName || "").toString().trim().toLowerCase();
+  const isBasicPlan = planName.startsWith("basic");
 
 
 
@@ -167,6 +168,7 @@ const isBasicPlan = planName.startsWith("basic");
         unreadCount: room.unreadCount || 0,
         title: room.title || 'Chat Room',
         lastMessage: room.lastMessage || null,
+        senderName: room.lastMessage?.sender?.name || null,
         owner: {
           name: room.seller?.name || normalizedOwner.name,
           phone: room.seller?.phone || normalizedOwner.phone,
@@ -218,6 +220,7 @@ const isBasicPlan = planName.startsWith("basic");
         unreadCount: response.data.unreadCount || 0,
         title: response.data.title || 'Chat Room',
         lastMessage: response.data.lastMessage || null,
+        senderName: response.data.lastMessage?.sender?.name || null,
         owner: {
           name: response.data.seller?.name || normalizedOwner.name,
           phone: response.data.seller?.phone || normalizedOwner.phone,
@@ -259,6 +262,7 @@ const isBasicPlan = planName.startsWith("basic");
         unreadCount: room.unreadCount || 0,
         title: room.title || 'Chat Room',
         lastMessage: room.lastMessage || null,
+        senderName: room.lastMessage?.sender?.name || null,
         owner: {
           name: room.seller?.name || normalizedOwner.name,
           phone: room.seller?.phone || normalizedOwner.phone,
@@ -554,6 +558,24 @@ const isBasicPlan = planName.startsWith("basic");
     const part1 = main.slice(0, 5);
     const part2 = main.slice(5);
     return `${country} ${part1}-${part2}`;
+  };
+
+  // Function to track ad click
+  const trackAdClick = async (adId, clickType) => {
+    if (!adId) return;
+    try {
+      await axios.post(
+        `${API_CONFIG.baseUrl}/api/v1/advertisements/${adId}/click/${clickType}`,
+        {},
+        {
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+    } catch (err) {
+      console.error('Failed to track ad click:', err);
+    }
   };
 
   // Initial data fetch
@@ -1262,65 +1284,65 @@ const isBasicPlan = planName.startsWith("basic");
           </div>
           <div className="requestinfo-tour-type mb-4">
             <div className="action-buttons-row">
-  <div className="message-call-row" style={{ display: "flex", gap: "10px", width: "100%" }}>
+              <div className="message-call-row" style={{ display: "flex", gap: "10px", width: "100%" }}>
 
-  {/* Send Button */}
-  <button
-    onClick={toggleChatModal}
-    className="action-button message"
-    disabled={isGuest}
-    
-  >
-    <FontAwesomeIcon icon={faMessage} />
-    Send Message
-  </button>
+                {/* Send Button */}
+                <button
+                  onClick={toggleChatModal}
+                  style={{ justifyContent: "center", flex: 1, display: "flex", alignItems: "center", gap: "6px" }}
+                // disabled={isGuest}
 
-  {/* Call + WhatsApp only if NOT Basic Plan */}
-  {!isBasicPlan && (
-    <>
+                >
+                  <FontAwesomeIcon icon={faMessage} />
+                  Send Message
+                </button>
 
-      {/* Call Button */}
-      <button
-        onClick={() => window.location.href = `tel:${normalizedOwner.phone}`}
-        className="action-button call"
-        disabled={normalizedOwner.phone === "N/A"}
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "6px",
-        }}
-      >
-        <FontAwesomeIcon icon={faPhone} />
-        Call
-      </button>
+                {/* Call + WhatsApp only if NOT Basic Plan */}
+                {!isBasicPlan && (
+                  <>
 
-      {/* WhatsApp Button */}
-      <button
-        onClick={() =>
-          window.open(
-            `https://wa.me/${normalizedOwner.phone}?text=Hello%20there!`,
-            "_blank"
-          )
-        }
-        className="action-button whatsapp"
-        disabled={normalizedOwner.whatsapp === "N/A"}
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "6px",
-        }}
-      >
-        <FontAwesomeIcon icon={faWhatsapp} />
-        WhatsApp
-      </button>
+                    {/* Call Button */}
+                    <button
+                      onClick={() => window.location.href = `tel:${normalizedOwner.phone}`}
+                      className="action-button call"
+                      disabled={normalizedOwner.phone === "N/A"}
+                      style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faPhone} />
+                      Call
+                    </button>
 
-    </>
-  )}
-</div>
+                    {/* WhatsApp Button */}
+                    <button
+                      onClick={() =>
+                        window.open(
+                          `https://wa.me/${normalizedOwner.phone}?text=Hello%20there!`,
+                          "_blank"
+                        )
+                      }
+                      className="action-button whatsapp"
+                      disabled={normalizedOwner.whatsapp === "N/A"}
+                      style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faWhatsapp} />
+                      WhatsApp
+                    </button>
+
+                  </>
+                )}
+              </div>
 
 
             </div>
@@ -1476,8 +1498,10 @@ const isBasicPlan = planName.startsWith("basic");
                             />
                           </div>
                           <div className="chat-info flex-1">
-                            <div className="chat-name font-semibold">{chat.owner.name}</div>
-                            <div className="district-name text-sm text-gray-500">{chat.district}</div>
+                            <div className="chat-name font-semibold">{chat.senderName || chat.owner.name}</div>
+                            {chat.district && chat.district !== 'Unknown' && (
+                              <div className="district-name text-sm text-gray-500">{chat.district}</div>
+                            )}
                             <div className="chat-msg text-sm text-gray-600 truncate">
                               {(messages[chat.id] || []).slice(-1)[0]?.content || chat.lastMessage?.content || 'No messages yet'}
                             </div>
@@ -1513,12 +1537,12 @@ const isBasicPlan = planName.startsWith("basic");
                             onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
                           />
                           <div className="chat-header-info">
-                            <span className="chat-header-name">{activeRoom?.owner?.name || 'Unknown'}</span>
-                            <span className="chat-header-district">{activeRoom?.district || 'Unknown'}</span>
+                            <span className="chat-header-name">{activeRoom?.senderName || activeRoom?.owner?.name}</span>
+                            {/* <span className="chat-header-district">{activeRoom?.district }</span> */}
                           </div>
-                          <span className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
+                          {/* <span className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
                             {isConnected ? '🟢 Online' : '🔴 Offline'}
-                          </span>
+                          </span> */}
                           <button className="chat-close" onClick={toggleChatModal} aria-label="Close chat">
                             <FontAwesomeIcon icon={faTimes} />
                           </button>
@@ -1535,7 +1559,9 @@ const isBasicPlan = planName.startsWith("basic");
                             >
                               <div className="message-content">{msg.content}</div>
                               <div className="message-meta">
-                                <span className="timestamp">{format(new Date(msg.createdAt), 'h:mm a')}</span>
+                                <span className="timestamp">
+                                  {formatInTimeZone(msg.createdAt, 'Asia/Kolkata', 'h:mm a')}
+                                </span>
                                 {msg.type === 'outgoing' && (
                                   <span className={`message-status ${msg.status.toLowerCase()}`}>
                                     {msg.status === 'READ' ? '✓✓' : '✓'}
@@ -1618,80 +1644,131 @@ const isBasicPlan = planName.startsWith("basic");
                   <p className="ad-description">{ad.description || 'No description available.'}</p>
                   <div className="ad-contact-icons">
 
-  {/* HIDE Call + WhatsApp IF BASIC PLAN */}
-  {!isBasicPlan && ad.phoneNumber && ad.phoneNumber.trim() !== '' && ad.phoneNumber !== 'N/A' && (
-    <a
-      href={`tel:${ad.phoneNumber}`}
-      className="call"
-      aria-label="Call advertisement contact"
-    >
-      <FontAwesomeIcon icon={faPhone} />
-    </a>
-  )}
+                    {/* HIDE Call + WhatsApp IF BASIC PLAN */}
+                    {!isBasicPlan && ad.phoneNumber && ad.phoneNumber.trim() !== '' && ad.phoneNumber !== 'N/A' && (
+                      <a
+                        href={`tel:${ad.phoneNumber}`}
+                        className="call"
+                        aria-label="Call advertisement contact"
+                        onClick={() => trackAdClick(ad.id, 'phone')}
+                      >
+                        <FontAwesomeIcon icon={faPhone} />
+                      </a>
+                    )}
 
-  {!isBasicPlan && ad.phoneNumber && ad.phoneNumber.trim() !== '' && ad.phoneNumber !== 'N/A' && (
-    <a
-      href={`https://wa.me/${ad.phoneNumber}`}
-      className="whatsapp"
-      target="_blank"
-      aria-label="WhatsApp advertisement contact"
-    >
-      <FontAwesomeIcon icon={faWhatsapp} />
-    </a>
-  )}
+                    {!isBasicPlan && ad.phoneNumber && ad.phoneNumber.trim() !== '' && ad.phoneNumber !== 'N/A' && (
+                      <a
+                        href={`https://wa.me/${ad.phoneNumber}`}
+                        className="whatsapp"
+                        target="_blank"
+                        aria-label="WhatsApp advertisement contact"
+                        onClick={() => trackAdClick(ad.id, 'whatsapp')}
+                      >
+                        <FontAwesomeIcon icon={faWhatsapp} />
+                      </a>
+                    )}
 
-  {/* Email always allowed */}
-  {ad.emailAddress && ad.emailAddress.trim() !== '' && ad.emailAddress !== 'N/A' && (
-    <a
-      href={`mailto:${ad.emailAddress}?subject=Inquiry about ${ad.title || 'Advertisement'}`}
-      className="mail"
-    >
-      <FontAwesomeIcon icon={faEnvelope} />
-    </a>
-  )}
+                    {/* Email always allowed */}
+                    {ad.emailAddress && ad.emailAddress.trim() !== '' && ad.emailAddress !== 'N/A' && (
+                      <a
+                        href={`mailto:${ad.emailAddress}?subject=Inquiry about ${ad.title || 'Advertisement'}`}
+                        className="mail"
+                        onClick={() => trackAdClick(ad.id, 'email')} // assuming email click type is 'email' or fallback
+                      >
+                        <FontAwesomeIcon icon={faEnvelope} />
+                      </a>
+                    )}
 
-  {/* Social links always allowed */}
-  {ad.instagramUrl && ad.instagramUrl.trim() !== '' && (
-    <a href={ad.instagramUrl} className="instagram" target="_blank">
-      <FontAwesomeIcon icon={faInstagram} />
-    </a>
-  )}
+                    {/* Social links always allowed */}
+                    {ad.instagramUrl && ad.instagramUrl.trim() !== '' && (
+                      <a href={ad.instagramUrl} className="instagram" target="_blank" onClick={() => trackAdClick(ad.id, 'instagram')}>
+                        <FontAwesomeIcon icon={faInstagram} />
+                      </a>
+                    )}
 
-  {ad.facebookUrl && ad.facebookUrl.trim() !== '' && (
-    <a href={ad.facebookUrl} className="facebook" target="_blank">
-      <FontAwesomeIcon icon={faFacebookF} />
-    </a>
-  )}
+                    {ad.facebookUrl && ad.facebookUrl.trim() !== '' && (
+                      <a href={ad.facebookUrl} className="facebook" target="_blank" onClick={() => trackAdClick(ad.id, 'facebook')}>
+                        <FontAwesomeIcon icon={faFacebookF} />
+                      </a>
+                    )}
 
-  {ad.twitterUrl && ad.twitterUrl.trim() !== '' && (
-    <a href={ad.twitterUrl} className="twitter" target="_blank">
-      <FontAwesomeIcon icon={faTwitter} />
-    </a>
-  )}
+                    {ad.twitterUrl && ad.twitterUrl.trim() !== '' && (
+                      <a href={ad.twitterUrl} className="twitter" target="_blank" onClick={() => trackAdClick(ad.id, 'twitter')}>
+                        <FontAwesomeIcon icon={faTwitter} />
+                      </a>
+                    )}
 
-  {ad.linkedinUrl && ad.linkedinUrl.trim() !== '' && (
-    <a href={ad.linkedinUrl} className="linkedin" target="_blank">
-      <FontAwesomeIcon icon={faLinkedinIn} />
-    </a>
-  )}
+                    {ad.linkedinUrl && ad.linkedinUrl.trim() !== '' && (
+                      <a href={ad.linkedinUrl} className="linkedin" target="_blank" onClick={() => trackAdClick(ad.id, 'linkedin')}>
+                        <FontAwesomeIcon icon={faLinkedinIn} />
+                      </a>
+                    )}
 
-  {ad.youtubeUrl && ad.youtubeUrl.trim() !== '' && (
-    <a href={ad.youtubeUrl} className="youtube" target="_blank">
-      <FontAwesomeIcon icon={faYoutube} />
-    </a>
-  )}
+                    {ad.youtubeUrl && ad.youtubeUrl.trim() !== '' && (
+                      <a href={ad.youtubeUrl} className="youtube" target="_blank" onClick={() => trackAdClick(ad.id, 'youtube')}>
+                        <FontAwesomeIcon icon={faYoutube} />
+                      </a>
+                    )}
 
-  {ad.websiteUrl && ad.websiteUrl.trim() !== '' && (
-    <a href={ad.websiteUrl} className="website" target="_blank">
-      <FontAwesomeIcon icon={faGlobe} />
-    </a>
-  )}
-</div>
+                    {ad.websiteUrl && ad.websiteUrl.trim() !== '' && (
+                      <a href={ad.websiteUrl} className="website" target="_blank" onClick={() => trackAdClick(ad.id, 'website')}>
+                        <FontAwesomeIcon icon={faGlobe} />
+                      </a>
+                    )}
+                  </div>
 
                 </div>
               </div>
             ) : (
-              <p className="text-center">No advertisement available for {districtName}</p>
+              <div className="ad-container">
+                <div className="ad-image-wrapper">
+                  <img
+                    src="/src/assets/staticad.png"
+                    alt="Real Estate Opportunities"
+                    className="ad-image"
+                    onError={(e) => { e.target.src = DEFAULT_AD_IMAGE; }}
+                  />
+                </div>
+                <div className="ad-content">
+                  <h5 className="ad-title">Real Estate Opportunities</h5>
+                  <p className="ad-description">Looking for exclusive property deals? Contact us for the best real estate investments.</p>
+                  <div className="ad-contact-icons">
+                    <a
+                      href="tel:+919155105666"
+                      className="call"
+                      aria-label="Call advertisement contact"
+                    >
+                      <FontAwesomeIcon icon={faPhone} />
+                    </a>
+                    <a
+                      href="https://wa.me/919155105666"
+                      className="whatsapp"
+                      target="_blank"
+                      aria-label="WhatsApp advertisement contact"
+                    >
+                      <FontAwesomeIcon icon={faWhatsapp} />
+                    </a>
+                    <a
+                      href="mailto:mail.nearprop@gmail.com?subject=Inquiry about Real Estate Opportunities"
+                      className="mail"
+                    >
+                      <FontAwesomeIcon icon={faEnvelope} />
+                    </a>
+                    <a href="https://nearprop.com" className="website" target="_blank">
+                      <FontAwesomeIcon icon={faGlobe} />
+                    </a>
+                    <a href="https://instagram.com/nearprop" className="instagram" target="_blank">
+                      <FontAwesomeIcon icon={faInstagram} />
+                    </a>
+                    <a href="https://facebook.com/nearprop" className="facebook" target="_blank">
+                      <FontAwesomeIcon icon={faFacebookF} />
+                    </a>
+                    <a href="https://youtube.com/nearprop" className="youtube" target="_blank">
+                      <FontAwesomeIcon icon={faYoutube} />
+                    </a>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>

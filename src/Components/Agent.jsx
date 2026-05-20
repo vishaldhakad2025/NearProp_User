@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "./agents.css";
@@ -12,6 +12,7 @@ import {
   faComment,
   faMapMarkerAlt as faMapMarkerAltSolid,
   faStar as faSolidStar,
+  faShareAlt,
 } from "@fortawesome/free-solid-svg-icons";
 import { faStar as faRegularStar } from "@fortawesome/free-regular-svg-icons";
 import {
@@ -23,10 +24,9 @@ import {
   FaMapMarkerAlt,
   FaHome,
   FaCheckCircle,
+  FaEye,
 } from "react-icons/fa";
 import villa1 from "../assets/villa-1.avif";
-import villa2 from "../assets/villa-2.avif";
-import villa3 from "../assets/villa-3.avif";
 import nearpropLogo from "../assets/Nearprop 1.png";
 import axios from "axios";
 
@@ -47,6 +47,10 @@ function Agent() {
   const [reviewsError, setReviewsError] = useState(null);
   const [averageRating, setAverageRating] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
+
+  // Share modal state
+  const [shareAdvisor, setShareAdvisor] = useState(null);
+
   const navigate = useNavigate();
 
   // Location filters
@@ -93,18 +97,18 @@ function Agent() {
     }
   }, [navigate]);
 
-  // Fetch developers
+  // Fetch advisors
   useEffect(() => {
     const fetchDevelopers = async () => {
       try {
         const token = getToken();
-        if (!token) return; // Skip fetching if not authenticated
+        if (!token) return;
 
         setLoading(true);
         setError(null);
 
         const response = await fetch(
-          `${baseUrl}/${apiPrefix}/v1/admin/users/role/ADVISOR`,
+          `${baseUrl}/api/public/users/advisors`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -113,7 +117,7 @@ function Agent() {
           }
         );
 
-        if (!response.ok) throw new Error("Failed to fetch developers");
+        if (!response.ok) throw new Error("Failed to fetch advisors");
 
         const data = await response.json();
         setDevelopers(data.data || []);
@@ -133,7 +137,7 @@ function Agent() {
     const fetchDistricts = async () => {
       try {
         const token = getToken();
-        if (!token) return; // Skip fetching if not authenticated
+        if (!token) return;
 
         const res = await axios.get(`${baseUrl}/${apiPrefix}/property-districts`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -197,6 +201,14 @@ function Agent() {
     setReviews([]);
     setAverageRating(0);
     setReviewCount(0);
+  };
+
+  const openShareModal = (advisor) => {
+    setShareAdvisor(advisor);
+  };
+
+  const closeShareModal = () => {
+    setShareAdvisor(null);
   };
 
   const fetchAgentListings = async (developerId) => {
@@ -280,6 +292,95 @@ function Agent() {
     }
   };
 
+  // Searchable Dropdown Component
+  const SearchableDropdown = ({ options, value, onChange, placeholder }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef(null);
+
+    const filteredOptions = options.filter(option =>
+      option.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const selectedLabel = options.find(opt => opt.value === value)?.label || '';
+
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+          setIsOpen(false);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+      <div ref={wrapperRef} className="relative">
+        <input
+          type="text"
+          value={isOpen ? searchTerm : selectedLabel}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onFocus={() => setIsOpen(true)}
+          onClick={() => setIsOpen(true)}
+          placeholder={selectedLabel || placeholder}
+          className="filter-select"
+          readOnly={false}
+        />
+        {isOpen && (
+          <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+            {filteredOptions.length === 0 ? (
+              <div className="p-2 text-gray-500 text-sm">No options found</div>
+            ) : (
+              filteredOptions.map((option) => (
+                <div
+                  key={option.value}
+                  onClick={() => {
+                    onChange({ target: { value: option.value } });
+                    setSearchTerm('');
+                    setIsOpen(false);
+                  }}
+                  className="p-2 hover:bg-blue-100 cursor-pointer text-sm"
+                >
+                  {option.label}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Generate shareable URL
+ const generateShareUrl = (advisorId) => {
+  return `${window.location.origin}/agents#${advisorId}`;
+};
+
+
+useEffect(() => {
+  if (window.location.hash) {
+    const hashId = window.location.hash.substring(1);
+    if (developers.length > 0) {
+      const adv = developers.find(d => d.id === hashId);
+      if (adv) {
+        openDeveloperModal(adv);
+      }
+    }
+  }
+}, [developers]);
+  // Handle shared link opening
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const advId = params.get("adv");
+    if (advId && developers.length > 0) {
+      const adv = developers.find(d => d.id === advId);
+      if (adv) {
+        openDeveloperModal(adv);
+        window.history.replaceState({}, document.title, "/agents");
+      }
+    }
+  }, [developers]);
+
   // Do not render content if not authenticated
   const token = getToken();
   if (!token) {
@@ -291,21 +392,46 @@ function Agent() {
       <div className="page-container">
         <div className="content-area">
           <h2 className="p-3">Property Advisor</h2>
-          {loading && <p>Loading developers...</p>}
+          {loading && <p>Loading advisors...</p>}
           {error && <p className="error-message">Error: {error}</p>}
           {!loading && !error && filteredDevelopers.length === 0 && (
-            <p>No developers found.</p>
+            <p>No advisors found.</p>
           )}
 
           <div className="agents-grid">
             {filteredDevelopers.map((developer) => (
-              <div key={developer.id} className="nearprop-agent-card">
+              <div key={developer.id} className="nearprop-agent-card" style={{ position: "relative" }}>
+                {/* Share Icon - Top Right */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "10px",
+                    right: "10px",
+                    background: "rgba(255,255,255,0.8)",
+                    borderRadius: "50%",
+                    width: "36px",
+                    height: "36px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    zIndex: 10,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openShareModal(developer);
+                  }}
+                >
+                  <FontAwesomeIcon icon={faShareAlt} style={{ fontSize: "18px", color: "#3498db" }} />
+                </div>
+
                 <img
                   src={
                     developer.profileImageUrl ||
                     nearpropLogo
                   }
-                  alt={developer.name || "Developer"}
+                  alt={developer.name || "Advisor"}
                   className="nearprop-agent-photo"
                   onError={(e) => {
                     e.target.src = nearpropLogo;
@@ -313,14 +439,27 @@ function Agent() {
                 />
                 <div className="nearprop-agent-info">
                   <div className="nearprop-header d-inline-flex p-2">
-                    <h2 className="nearprop-agent-name ">
-                      {developer.name || "Unknown Developer"}
+                    <h2 className="nearprop-agent-name">
+                      {developer.name || "Unknown Advisor"}
                     </h2>
-                    <div className="nearprop-stars">★ ★ ★ ☆ ☆</div>
+                    <div className="nearprop-stars">★★★★☆</div>
                   </div>
                   <p className="nearprop-designation p-2">
-                    Developer at <a href="#">Modern House Real Estate</a>
+                    Property Advisor • NearProp Verified
                   </p>
+
+                  {/* State & District Display */}
+                  {(developer.state || developer.district) && (
+                    <div style={{ margin: "10px 0", color: "#555", fontSize: "14px", padding: "0 16px", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <FaMapMarkerAlt style={{ color: "#e74c3c", flexShrink: 0 }} />
+                      <span>
+                        {developer.state && <span>{developer.state}</span>}
+                        {developer.state && developer.district && <span>, </span>}
+                        {developer.district && <span>{developer.district}</span>}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="nearprop-details">
                     <div className="nearprop-row">
                       <span>Call</span>
@@ -335,7 +474,7 @@ function Agent() {
                       <span>WhatsApp</span>
                       <p>
                         <a
-                          href={`https://wa.me/${developer.mobileNumber || "3214569874"}`}
+                          href={`https://wa.me/${developer.mobileNumber?.replace(/\+/g, "") || "3214569874"}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -347,7 +486,7 @@ function Agent() {
                     <div className="nearprop-row">
                       <span>Email</span>
                       <p>
-                        <a href={`mailto:${developer.email || "developer@nearprop.com"}`}>
+                        <a href={`mailto:${developer.email || "advisor@nearprop.com"}`}>
                           <FaEnvelope className="contact-icon" />
                         </a>
                       </p>
@@ -355,7 +494,9 @@ function Agent() {
                     <hr />
                     <div className="nearprop-row">
                       <span>Profile</span>
-                      <label onClick={() => openDeveloperModal(developer)}>View</label>
+                      <label onClick={() => openDeveloperModal(developer)} style={{ cursor: "pointer" }}>
+                        <FaEye style={{ fontSize: "18px", color: "#3498db" }} />
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -367,57 +508,88 @@ function Agent() {
         {/* Sidebar */}
         <div className="agents-sidebar">
           <div className="widget">
-            <h3>Find Developer</h3>
+            <h3>Find Advisor</h3>
             <input
               type="text"
-              placeholder="Enter developer name"
+              placeholder="Enter advisor name"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
             <div className="filter-group">
               <label className="filter-label">State</label>
-              <select
+              <SearchableDropdown
+                options={states.map(s => ({ value: s, label: s }))}
                 value={selectedState}
                 onChange={(e) => setSelectedState(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All States</option>
-                {states.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                placeholder="All States"
+              />
             </div>
             <div className="filter-group">
               <label className="filter-label">District</label>
-              <select
+              <SearchableDropdown
+                options={filteredDistricts.map(d => ({ value: d.name || d.district, label: d.name || d.district }))}
                 value={selectedDistrict}
                 onChange={(e) => setSelectedDistrict(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All Districts</option>
-                {filteredDistricts.map((d) => (
-                  <option key={d.district} value={d.district}>
-                    {d.district}
-                  </option>
-                ))}
-              </select>
+                placeholder="All Districts"
+                disabled={filteredDistricts.length === 0}
+              />
             </div>
-            <button className="search-btn" onClick={applyFilters}>Search Developer</button>
+            <button className="search-btn" onClick={applyFilters}>Search Advisor</button>
           </div>
-         
         </div>
       </div>
 
-      {/* Full-Page Modal */}
+      {/* Share Modal */}
+      {shareAdvisor && (
+        <div className="agentlist-modal-fullpage" style={{ zIndex: 9999 }}>
+          <div className="agentlist-modal-content" style={{ maxWidth: "500px" }}>
+            <div className="agentlist-modal-header">
+              <span className="agentlist-modal-title">Share Advisor Profile</span>
+              <span className="agentlist-modal-close" onClick={closeShareModal}>
+                &times;
+              </span>
+            </div>
+            <div style={{ padding: "30px", textAlign: "center" }}>
+              <p>Copy this link to share:</p>
+              <div style={{
+                background: "#f1f1f1",
+                padding: "12px",
+                borderRadius: "8px",
+                wordBreak: "break-all",
+                margin: "15px 0",
+                fontFamily: "monospace",
+              }}>
+                {generateShareUrl(shareAdvisor.id)}
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(generateShareUrl(shareAdvisor.id));
+                  toast.success("Link copied to clipboard!");
+                }}
+                style={{
+                  padding: "10px 20px",
+                  background: "#3498db",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                Copy Link
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Page Modal (Profile) */}
       {selectedDeveloper && (
         <div className="agentlist-modal-fullpage">
           <div className="agentlist-modal-content">
             <div className="agentlist-modal-header">
               <span className="agentlist-modal-title">Advisor Profile</span>
               <span className="agentlist-modal-close" onClick={closeDeveloperModal}>
-                &times;
+                ×
               </span>
             </div>
 
@@ -435,12 +607,25 @@ function Agent() {
               />
               <div className="agentlist-modal-info">
                 <h2>
-                  {selectedDeveloper.name || "Unknown Developer"}{" "}
+                  {selectedDeveloper.name || "Unknown Advisor"}{" "}
                   <FaCheckCircle className="agentlist-verified" />
                 </h2>
                 <p className="agentlist-role-text">
-                  Advisor at Modern House Real Estate
-                </p>
+                  Property Advisor
+                </p> 
+
+                {/* State & District in Modal Header */}
+                {(selectedDeveloper.state || selectedDeveloper.district) && (
+                  <div style={{ margin: "10px 0", color: "#555", fontSize: "15px", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <FaMapMarkerAlt style={{ color: "#e74c3c", flexShrink: 0 }} />
+                    <span>
+                      {selectedDeveloper.state && <span>{selectedDeveloper.state}</span>}
+                      {selectedDeveloper.state && selectedDeveloper.district && <span>, </span>}
+                      {selectedDeveloper.district && <span>{selectedDeveloper.district}</span>}
+                    </span>
+                  </div>
+                )}
+
                 <div className="agentlist-rating">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <FaStar
@@ -455,7 +640,7 @@ function Agent() {
 
             {/* Action Buttons */}
             <div className="agentlist-actions">
-              <a href={`mailto:${selectedDeveloper.email || "developer@nearprop.com"}`}>
+              <a href={`mailto:${selectedDeveloper.email || "advisor@nearprop.com"}`}>
                 <button className="agentlist-email">
                   <FaEnvelope /> Email
                 </button>
@@ -466,7 +651,7 @@ function Agent() {
                 </button>
               </a>
               <a
-                href={`https://wa.me/${selectedDeveloper.mobileNumber || "3214569874"}`}
+                href={`https://wa.me/${selectedDeveloper.mobileNumber?.replace(/\+/g, "") || "3214569874"}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -500,10 +685,16 @@ function Agent() {
 
             <div className="agentlist-tab-content">
               {activeTab === "about" && (
-                <div>
+                <div style={{ padding: "20px" }}>
                   <h3>Details</h3>
-                  <p><FaBuilding /> Company: Modern House Real Estate</p>
-                  <p><FaMapMarkerAlt /> Address: California, USA</p>
+                  <p><FaBuilding /> Role: Property Advisor</p>
+                  {(selectedDeveloper.state || selectedDeveloper.district) && (
+                    <p style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <FaMapMarkerAlt />
+                      {selectedDeveloper.district && `${selectedDeveloper.district}, `}
+                      {selectedDeveloper.state || ""}
+                    </p>
+                  )}
                   <p><FaHome /> Properties: {agentListings.length || 0} listings</p>
                 </div>
               )}
@@ -641,12 +832,11 @@ function Agent() {
                                     color: "#4a5568",
                                     marginBottom: "10px",
                                     display: "flex",
-                                    flexWrap: "wrap",
+                                    alignItems: "center",
                                     gap: "6px",
-                                    wordBreak: "break-word",
                                   }}>
-                                    <FontAwesomeIcon icon={faMapMarkerAltSolid} />{" "}
-                                    <span style={{ wordBreak: "break-word", maxWidth: "100%" }}>
+                                    <FontAwesomeIcon icon={faMapMarkerAltSolid} style={{ flexShrink: 0 }} />
+                                    <span style={{ wordBreak: "break-word" }}>
                                       {property.address || "No Address"}
                                     </span>
                                   </div>
@@ -727,6 +917,8 @@ function Agent() {
           </div>
         </div>
       )}
+
+      <ToastContainer />
     </>
   );
 }

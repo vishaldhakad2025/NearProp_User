@@ -1038,8 +1038,8 @@ function CityProperty() {
             <h2>Properties in {cityParam || "All Cities"}</h2>
 
             {loading ? (
-              <div className="spinner">
-                <div className="spinner-icon"></div>
+              <div className="">
+                {/* <div className="spinner-icon"></div> */}
                 <p>Loading properties...</p>
               </div>
             ) : error ? (

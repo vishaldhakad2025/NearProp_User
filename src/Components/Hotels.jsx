@@ -18,14 +18,13 @@ import {
 import axios from "axios";
 import "./Properties.css";
 
-// 🔹 Local fallback images
+// Local fallback images
 import Apartment from '../assets/A-1.avif';
 import Apartment2 from '../assets/c-2.avif';
 import Apartment3 from '../assets/apartment.avif';
 import Apartment4 from '../assets/studio.jpg';
 import Apartment6 from '../assets/penthouse.avif';
 import Apartment7 from '../assets/villa.avif';
-import { Link2 } from "lucide-react";
 
 const fallbackImages = [Apartment, Apartment2, Apartment3, Apartment4, Apartment6, Apartment7];
 
@@ -34,7 +33,7 @@ const API_CONFIG = {
   apiPrefix: 'api',
 };
 
-// 🔹 Helper function to pick first valid image
+// Helper to pick first valid image
 const getValidImage = (images, fallback, baseUrl = "") => {
   if (!Array.isArray(images) || images.length === 0) return fallback;
   const validImg = images.find(
@@ -43,7 +42,7 @@ const getValidImage = (images, fallback, baseUrl = "") => {
   return validImg ? (validImg.startsWith("http") ? validImg : `${baseUrl}${validImg}`) : fallback;
 };
 
-// 🔹 Get user location
+// Get user location (promise-based)
 const getUserLocation = () => {
   return new Promise((resolve) => {
     try {
@@ -51,7 +50,6 @@ const getUserLocation = () => {
       if (locationData) {
         const parsedLocation = JSON.parse(locationData);
         if (parsedLocation.latitude && parsedLocation.longitude) {
-          console.log("User location retrieved from localStorage:", parsedLocation);
           return resolve({
             latitude: parsedLocation.latitude,
             longitude: parsedLocation.longitude,
@@ -63,7 +61,7 @@ const getUserLocation = () => {
     }
 
     if (!navigator.geolocation) {
-      console.error("Geolocation not supported by browser");
+      console.error("Geolocation not supported");
       return resolve(null);
     }
 
@@ -74,11 +72,10 @@ const getUserLocation = () => {
           longitude: position.coords.longitude,
         };
         localStorage.setItem("myLocation", JSON.stringify(location));
-        console.log("User location fetched from Geolocation API:", location);
         resolve(location);
       },
       (err) => {
-        console.error("Geolocation error:", err.message, "Code:", err.code);
+        console.error("Geolocation error:", err.message);
         resolve(null);
       },
       {
@@ -90,21 +87,17 @@ const getUserLocation = () => {
   });
 };
 
-// 🔹 Calculate distance using Haversine formula
+// Haversine formula
 const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // Earth's radius in km
+  const R = 6371;
   const toRad = (value) => (value * Math.PI) / 180;
-
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
-  
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const distance = R * c;
-  
   return isNaN(distance) ? null : Number(distance.toFixed(2));
 };
 
@@ -116,54 +109,73 @@ function Hotels() {
   const [location, setLocation] = useState(null);
   const [locationError, setLocationError] = useState(null);
 
-  // Sidebar filters
+  // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPriceMin, setFilterPriceMin] = useState("");
   const [filterPriceMax, setFilterPriceMax] = useState("");
   const [filterRatingMin, setFilterRatingMin] = useState("");
-  const [filterStarRating, setFilterStarRating] = useState("");
-
-  // Location filters
-  const [states, setStates] = useState([]);
-  const [cities, setCities] = useState([]);
   const [selectedState, setSelectedState] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
-
-  // Amenities filters
   const [selectedAmenities, setSelectedAmenities] = useState([]);
+
+  // Dropdown search
+  const [stateSearch, setStateSearch] = useState("");
+  const [citySearch, setCitySearch] = useState("");
+  const [showStateDropdown, setShowStateDropdown] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+
+  // Location data
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
 
   const { hotelBanquetBaseUrl, apiPrefix } = API_CONFIG;
 
-  // ✅ Get user location
+  // Track hotel click (fire-and-forget)
+  const trackHotelClick = async (hotelId) => {
+    if (!hotelId) return;
+    try {
+      const url = `${hotelBanquetBaseUrl}/${apiPrefix}/property-click/Hotel/${hotelId}/click`;
+      await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      // Silent success
+    } catch (err) {
+      console.error('Failed to track hotel click:', err);
+      // Silent fail
+    }
+  };
+
+  // Fetch user location
   useEffect(() => {
     getUserLocation().then((loc) => {
       if (loc) {
         setLocation(loc);
         setLocationError(null);
-        // Fetch nearby hotels when location is available
         fetchNearbyHotels(loc.latitude, loc.longitude);
       } else {
-        setLocationError("Unable to fetch location. Please enable location services.");
-        // Fetch all hotels if location not available
+        setLocationError("Unable to fetch location. Showing all hotels.");
         fetchAllHotels();
       }
     });
   }, []);
 
-  // ✅ Fetch nearby hotels
+  // Fetch nearby hotels
   const fetchNearbyHotels = async (lat, lng, radius = 50) => {
     try {
       setLoading(true);
       const url = `${hotelBanquetBaseUrl}/${apiPrefix}/hotels/nearby?latitude=${lat}&longitude=${lng}&radius=${radius * 1000}`;
       const response = await fetch(url);
       const text = await response.text();
-      if (!response.ok) throw new Error(`Error: ${response.status} → ${text}`);
+      if (!response.ok) throw new Error(`Error: ${response.status}`);
 
       const data = JSON.parse(text);
       if (data.success) {
         const formattedHotels = (data.data?.hotels || []).map(hotel => ({
-          id: hotel._id,
-          hotelId: hotel.hotelId,
+          id: hotel._id,                    // Use MongoDB _id for tracking
+          hotelId: hotel.hotelId || hotel._id, // Keep hotelId for URL if needed
           title: hotel.name || "Untitled Hotel",
           address: hotel.address || `${hotel.city || "Unknown"}, ${hotel.state || "Unknown"}`,
           imageUrls: hotel.images || [],
@@ -179,82 +191,61 @@ function Hotels() {
           latitude: hotel.location?.coordinates?.[1] || null,
           longitude: hotel.location?.coordinates?.[0] || null,
           distance: hotel.distanceValue ? (hotel.distanceValue / 1000).toFixed(2) : null,
-          distanceText: hotel.distance || "",
           averageRoomPrice: hotel.averageRoomPrice || 0,
           averageRating: hotel.averageRating || 0,
           reviewCount: hotel.reviewCount || 0,
-          amenities: Array.isArray(hotel.amenities) ? hotel.amenities : 
+          amenities: Array.isArray(hotel.amenities) ? hotel.amenities :
                     (typeof hotel.amenities === 'string' ? JSON.parse(hotel.amenities.replace(/^\[|\]$/g, '')) : []),
           createdAt: hotel.createdAt || new Date().toISOString(),
-          registrationNumber: hotel.registrationNumber || "",
+          ownerName: hotel.ownerName || "Hotel Management",
           verificationStatus: hotel.verificationStatus || "",
-          ownerName: hotel.ownerName || "Hotel Management", // Added ownerName field
         }));
 
-        // Sort by distance if available
-        if (location) {
-          formattedHotels.sort((a, b) => {
-            if (!a.distance && !b.distance) return 0;
-            if (!a.distance) return 1;
-            if (!b.distance) return -1;
-            return parseFloat(a.distance) - parseFloat(b.distance);
-          });
-        }
-
+        formattedHotels.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
         setHotels(formattedHotels);
         setFilteredHotels(formattedHotels);
         extractLocationData(formattedHotels);
-      } else {
-        throw new Error(data.message || "Failed to fetch hotels");
       }
     } catch (err) {
       console.error("Error fetching nearby hotels:", err);
       setError(err.message);
-      fetchAllHotels(); // Fallback to all hotels
+      fetchAllHotels();
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Fetch all hotels (fallback)
+  // Fallback: fetch all hotels
   const fetchAllHotels = async () => {
     try {
       setLoading(true);
       const url = `${hotelBanquetBaseUrl}/${apiPrefix}/hotels`;
       const response = await fetch(url);
       const text = await response.text();
-      if (!response.ok) throw new Error(`Error: ${response.status} → ${text}`);
+      if (!response.ok) throw new Error(`Error: ${response.status}`);
 
       const data = JSON.parse(text);
       if (data.success && data.data?.hotels) {
-        const formattedHotels = (data.data.hotels || []).map(hotel => ({
+        const formattedHotels = data.data.hotels.map(hotel => ({
           id: hotel._id,
-          hotelId: hotel.hotelId,
+          hotelId: hotel.hotelId || hotel._id,
           title: hotel.name || "Untitled Hotel",
           address: hotel.address || `${hotel.city || "Unknown"}, ${hotel.state || "Unknown"}`,
           imageUrls: hotel.images || [],
           status: hotel.isAvailable ? "AVAILABLE" : "UNAVAILABLE",
-          description: hotel.description || "",
-          contactNumber: hotel.contactNumber || "",
-          alternateContact: hotel.alternateContact || "",
-          email: hotel.email || "",
-          website: hotel.website || "",
           city: hotel.city || "",
           state: hotel.state || "",
-          pincode: hotel.pincode || "",
           latitude: hotel.location?.coordinates?.[1] || null,
           longitude: hotel.location?.coordinates?.[0] || null,
           distance: null,
-          distanceText: "Distance unavailable",
           averageRoomPrice: hotel.averageRoomPrice || 0,
           averageRating: hotel.averageRating || 0,
           reviewCount: hotel.reviewCount || 0,
-          amenities: Array.isArray(hotel.amenities) ? hotel.amenities : 
+          amenities: Array.isArray(hotel.amenities) ? hotel.amenities :
                     (typeof hotel.amenities === 'string' ? JSON.parse(hotel.amenities.replace(/^\[|\]$/g, '')) : []),
           createdAt: hotel.createdAt || new Date().toISOString(),
-          registrationNumber: hotel.registrationNumber || "",
+          ownerName: hotel.ownerName || "Hotel Management",
           verificationStatus: hotel.verificationStatus || "",
-          ownerName: hotel.ownerName || "Hotel Management", // Added ownerName field
         }));
 
         setHotels(formattedHotels);
@@ -262,103 +253,61 @@ function Hotels() {
         extractLocationData(formattedHotels);
       }
     } catch (err) {
-      console.error("Error fetching all hotels:", err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Extract location data
   const extractLocationData = (hotelList) => {
     const uniqueStates = [...new Set(hotelList.map(h => h.state).filter(Boolean))].sort();
-    setStates(uniqueStates);
-    
     const uniqueCities = [...new Set(hotelList.map(h => h.city).filter(Boolean))].sort();
+    setStates(uniqueStates);
     setCities(uniqueCities);
   };
 
-  // ✅ Apply Filters and Sort by Distance
+  // Real-time filtering
   useEffect(() => {
     let filtered = [...hotels];
 
-    // Search by name
     if (searchQuery) {
-      filtered = filtered.filter((hotel) =>
-        hotel.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        hotel.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      filtered = filtered.filter(h =>
+        h.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        h.description?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
-    // Price filters
-    if (filterPriceMin) {
-      filtered = filtered.filter((hotel) => Number(hotel.averageRoomPrice) >= Number(filterPriceMin));
-    }
-    if (filterPriceMax) {
-      filtered = filtered.filter((hotel) => Number(hotel.averageRoomPrice) <= Number(filterPriceMax));
-    }
+    if (filterPriceMin) filtered = filtered.filter(h => h.averageRoomPrice >= Number(filterPriceMin));
+    if (filterPriceMax) filtered = filtered.filter(h => h.averageRoomPrice <= Number(filterPriceMax));
+    if (filterRatingMin) filtered = filtered.filter(h => (h.averageRating || 0) >= Number(filterRatingMin));
+    if (selectedState) filtered = filtered.filter(h => h.state?.toLowerCase() === selectedState.toLowerCase());
+    if (selectedCity) filtered = filtered.filter(h => h.city?.toLowerCase() === selectedCity.toLowerCase());
 
-    // Rating filter
-    if (filterRatingMin) {
-      filtered = filtered.filter((hotel) => (hotel.averageRating || 0) >= Number(filterRatingMin));
-    }
-
-    // Location filters
-    if (selectedState) {
-      filtered = filtered.filter((hotel) => hotel.state?.toLowerCase() === selectedState.toLowerCase());
-    }
-    if (selectedCity) {
-      filtered = filtered.filter((hotel) => hotel.city?.toLowerCase() === selectedCity.toLowerCase());
-    }
-
-    // Amenities filter
     if (selectedAmenities.length > 0) {
-      filtered = filtered.filter((hotel) => {
-        return selectedAmenities.every(amenity => 
-          hotel.amenities?.some(hotelAmenity => 
-            hotelAmenity.toLowerCase().includes(amenity.toLowerCase())
-          )
-        );
-      });
+      filtered = filtered.filter(hotel =>
+        selectedAmenities.every(amenity =>
+          hotel.amenities?.some(a => a.toLowerCase().includes(amenity.toLowerCase()))
+        )
+      );
     }
 
-    // Sort by distance if location available
-    if (location && location.latitude && location.longitude) {
-      filtered = filtered.map(hotel => ({
-        ...hotel,
-        calculatedDistance: hotel.latitude && hotel.longitude
-          ? getDistanceFromLatLonInKm(
-              location.latitude,
-              location.longitude,
-              hotel.latitude,
-              hotel.longitude
-            )
+    // Distance sorting
+    if (location) {
+      filtered = filtered.map(h => ({
+        ...h,
+        calculatedDistance: h.latitude && h.longitude
+          ? getDistanceFromLatLonInKm(location.latitude, location.longitude, h.latitude, h.longitude)
           : null
       }));
-
-      filtered.sort((a, b) => {
-        if (a.calculatedDistance === null && b.calculatedDistance === null) return 0;
-        if (a.calculatedDistance === null) return 1;
-        if (b.calculatedDistance === null) return -1;
-        return a.calculatedDistance - b.calculatedDistance;
-      });
+      filtered.sort((a, b) => (a.calculatedDistance ?? Infinity) - (b.calculatedDistance ?? Infinity));
     } else if (hotels.some(h => h.distance !== null)) {
-      // Use API-provided distance
-      filtered.sort((a, b) => {
-        if (!a.distance && !b.distance) return 0;
-        if (!a.distance) return 1;
-        if (!b.distance) return -1;
-        return parseFloat(a.distance) - parseFloat(b.distance);
-      });
+      filtered.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
     }
 
     setFilteredHotels(filtered);
-  }, [
-    hotels, searchQuery, filterPriceMin, filterPriceMax, 
-    filterRatingMin, selectedState, selectedCity, selectedAmenities, location
-  ]);
+  }, [hotels, searchQuery, filterPriceMin, filterPriceMax, filterRatingMin, selectedState, selectedCity, selectedAmenities, location]);
 
-  // ✅ Amenity icons mapping
+  // Amenity icons
   const amenityIcons = {
     'WiFi': faWifi,
     'AC': faBed,
@@ -369,14 +318,10 @@ function Hotels() {
     'Room Service': faUtensils,
     'Parking': faCar,
     'Laundry': faShower,
-    'Conference Room': faUser,
-    'Garden': faMapMarkerAlt,
-    'Bar': faUtensils,
-    'Security': faUser,
-    'Elevator': faBed,
-    'Kitchen': faUtensils,
-    'Balcony': faBed,
   };
+
+  const filteredStates = states.filter(s => s.toLowerCase().includes(stateSearch.toLowerCase()));
+  const filteredCities = cities.filter(c => c.toLowerCase().includes(citySearch.toLowerCase()));
 
   if (loading) return <div className="p-4">Loading hotels nearby…</div>;
   if (error) return <div className="p-4 text-danger">Error: {error}</div>;
@@ -401,244 +346,113 @@ function Hotels() {
         </div>
       )}
 
-      <div
-        className="nav justify-content-center p-5"
-        style={{ fontSize: "40px", fontWeight: "700", color: 'darkcyan' }}
-      >
+      <div className="nav justify-content-center p-5" style={{ fontSize: "40px", fontWeight: "700", color: 'darkcyan' }}>
         Nearby Hotels
       </div>
 
       <div className="blog-main-container">
-        {/* Left Section - Hotel Cards */}
         <div className="blog-left-section card-wrapper">
           {filteredHotels.length === 0 ? (
             <div className="no-properties text-center py-5">
               <h5>No hotels found matching your criteria.</h5>
-              <p>Try adjusting your filters or search for hotels in a different area.</p>
             </div>
           ) : (
             filteredHotels.map((hotel) => (
               <Link
-                to={`/HotelAndBanquetDetails/hotel/${hotel.hotelId}`}
+                to={`/HotelAndBanquetDetails/hotel/${hotel.hotelId || hotel.id}`}
                 key={hotel.id}
                 className="property-card-link"
+                onClick={() => trackHotelClick(hotel.id)}  // Track using _id
               >
-                <div
-                  className="landing-property-card"
+                <div className="landing-property-card"
                   style={{
                     background: "#ffffff",
                     borderRadius: "12px",
                     overflow: "hidden",
-                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                     transition: "transform 0.3s ease, box-shadow 0.3s ease",
                     display: "flex",
                     flexDirection: "column",
                     height: "100%",
                   }}
-                  onMouseEnter={(e) => {
+                  onMouseEnter={e => {
                     e.currentTarget.style.transform = "translateY(-8px)";
-                    e.currentTarget.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.15)";
+                    e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.15)";
                   }}
-                  onMouseLeave={(e) => {
+                  onMouseLeave={e => {
                     e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)";
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
                   }}
                 >
-                  <div
-                    className="landing-image-container"
-                    style={{
-                      position: "relative",
-                      height: "200px",
-                      width: "100%",
-                      overflow: "hidden",
-                    }}
-                  >
+                  <div style={{ position: "relative", height: "200px", overflow: "hidden" }}>
                     <img
                       src={getValidImage(hotel.imageUrls, fallbackImages[2], hotelBanquetBaseUrl)}
                       alt={hotel.title}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        transition: "transform 0.3s ease",
-                      }}
-                      onMouseEnter={(e) => (e.target.style.transform = "scale(1.05)")}
-                      onMouseLeave={(e) => (e.target.style.transform = "scale(1)")}
-                      onError={(e) => (e.target.src = fallbackImages[2])}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.3s ease" }}
+                      onMouseEnter={e => e.target.style.transform = "scale(1.05)"}
+                      onMouseLeave={e => e.target.style.transform = "scale(1)"}
+                      onError={e => e.target.src = fallbackImages[2]}
                     />
-                    {hotel.averageRating && (
-                      <span
-                        className="position-absolute"
-                        style={{
-                          top: "10px",
-                          right: "10px",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                          fontWeight: "bold",
-                          zIndex: "10",
-                          backgroundColor: "#ffc107",
-                          color: "#000",
-                          wordBreak: "break-word",
-                        }}
-                      >
+                    {hotel.averageRating > 0 && (
+                      <span style={{
+                        position: "absolute", top: "10px", right: "10px",
+                        background: "#ffc107", color: "#000", padding: "4px 8px",
+                        borderRadius: "4px", fontWeight: "bold", fontSize: "12px"
+                      }}>
                         ⭐ {hotel.averageRating}
                       </span>
                     )}
-
-                    <div
-                      className="landing-overlay-icons-left"
-                      style={{
-                        position: "absolute",
-                        bottom: "12px",
-                        left: "12px",
-                        background: "rgba(0,0,0,0.7)",
-                        color: "#ffffff",
-                        padding: "8px 12px",
-                        borderRadius: "8px",
-                        fontSize: "0.875rem",
-                        fontWeight: "500",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "4px",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      <div>
-                        ₹{hotel.averageRoomPrice
-                          ? Number(hotel.averageRoomPrice).toLocaleString("en-IN")
-                          : "N/A"}
-                        <br />
-                        <small style={{ fontSize: "0.75rem", fontWeight: "400" }}>
-                          /night
-                        </small>
-                      </div>
+                    <div style={{
+                      position: "absolute", bottom: "12px", left: "12px",
+                      background: "rgba(0,0,0,0.7)", color: "#fff",
+                      padding: "8px 12px", borderRadius: "8px", fontSize: "0.875rem"
+                    }}>
+                      ₹{hotel.averageRoomPrice ? Number(hotel.averageRoomPrice).toLocaleString("en-IN") : "N/A"}
+                      <br /><small>/night</small>
                     </div>
                   </div>
 
-                  <div
-                    className="landing-property-info"
-                    style={{
-                      padding: "16px",
-                      flexGrow: "1",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    <h2
-                      className="landing"
-                      style={{
-                        fontSize: "1.25rem",
-                        fontWeight: "600",
-                        color: "#1a202c",
-                        margin: "0 0 10px",
-                        lineHeight: "1.4",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        display: "-webkit-box",
-                        WebkitLineClamp: "2",
-                        WebkitBoxOrient: "vertical",
-                        wordBreak: "break-word",
-                      }}
-                    >
+                  <div style={{ padding: "16px", flexGrow: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <h2 style={{
+                      fontSize: "1.25rem", fontWeight: "600", color: "#1a202c",
+                      margin: "0 0 10px", lineHeight: "1.4",
+                      overflow: "hidden", textOverflow: "ellipsis",
+                      display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical"
+                    }}>
                       {hotel.title}
                     </h2>
-                    
-                    <div
-                      className="landing-location d-flex justify-content-between align-items-flex-start mb-2"
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "#4a5568",
-                        flexWrap: "wrap",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      <span
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          whiteSpace: "nowrap",
-                          marginRight: "8px",
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faMapMarkerAlt} className="me-1" /> 
+
+                    <div style={{ fontSize: "0.875rem", color: "#4a5568", display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
+                      <span style={{ display: "flex", alignItems: "center" }}>
+                        <FontAwesomeIcon icon={faMapMarkerAlt} className="me-2" />
                         {hotel.city}, {hotel.state}
                       </span>
-                      <span
-                        className="distance-text fw-bold"
-                        style={{
-                          color: "#0e7490",
-                          fontSize: "0.9rem",
-                          marginLeft: "8px",
-                          wordBreak: "break-word",
-                        }}
-                      >
+                      <span style={{ color: "#0e7490", fontWeight: "bold" }}>
                         {hotel.distance ? `${hotel.distance} km away` : "Distance unavailable"}
                       </span>
                     </div>
 
-                    <div
-                      className="landing-details mb-2"
-                      style={{
-                        display: "flex",
-                        gap: "16px",
-                        fontSize: "0.85rem",
-                        color: "#4a5568",
-                        flexWrap: "wrap",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <FontAwesomeIcon icon={faComment} className="me-1" /> 
-                        {hotel.reviewCount || 0} reviews
+                    <div style={{ display: "flex", gap: "16px", fontSize: "0.85rem", color: "#4a5568", marginBottom: "12px", flexWrap: "wrap" }}>
+                      <span style={{ display: "flex", alignItems: "center" }}>
+                        <FontAwesomeIcon icon={faComment} className="me-1" /> {hotel.reviewCount || 0} reviews
                       </span>
-                      <a href={hotel.website} className="text-decoration-none d-flex" style={{ color: "#4a5568" }}>
-                        <FontAwesomeIcon icon={faPaperclip} className="me-1" /> 
-                        {hotel.website ? hotel.website : "N/A"}
-                      </a>
                     </div>
 
-                    <div
-                      className="landing-type text-dark mb-2"
-                      style={{
-                        fontSize: "0.875rem",
-                        fontWeight: "600",
-                        color: "#3182ce",
-                        marginBottom: "12px",
-                        textTransform: "capitalize",
-                        display: "flex",
-                        alignItems: "center",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      <strong>{hotel.verificationStatus === "verified" ? "✅ Verified" : "⏳ Pending"}</strong>
+                    <div style={{ fontSize: "0.875rem", fontWeight: "600", color: "#3182ce", marginBottom: "12px" }}>
+                      <strong>{hotel.verificationStatus === "verified" ? "Verified" : "Pending"}</strong>
                     </div>
 
-                    <div
-                      className="landing-footer"
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: "0.75rem",
-                        color: "#718096",
-                        borderTop: "1px solid #e2e8f0",
-                        paddingTop: "12px",
-                        flexWrap: "wrap",
-                        gap: "10px",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <FontAwesomeIcon icon={faUser} className="me-1" /> 
-                        {hotel.ownerName || "Hotel Management"} {/* Display ownerName instead of contactNumber */}
+                    <div style={{
+                      display: "flex", justifyContent: "space-between",
+                      fontSize: "0.75rem", color: "#718096",
+                      borderTop: "1px solid #e2e8f0", paddingTop: "12px", flexWrap: "wrap"
+                    }}>
+                      <span style={{ display: "flex", alignItems: "center" }}>
+                        <FontAwesomeIcon icon={faUser} className="me-1" /> {hotel.ownerName}
                       </span>
-                      <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <FontAwesomeIcon icon={faPaperclip} className="me-1" /> 
-                        {hotel.createdAt
-                          ? new Date(hotel.createdAt).toLocaleDateString()
-                          : "N/A"}
+                      <span style={{ display: "flex", alignItems: "center" }}>
+                        <FontAwesomeIcon icon={faPaperclip} className="me-1" />
+                        {new Date(hotel.createdAt).toLocaleDateString()}
                       </span>
                     </div>
                   </div>
@@ -648,172 +462,105 @@ function Hotels() {
           )}
         </div>
 
-        {/* Right Sidebar - Filters */}
+        {/* Sidebar Filters */}
         <div className="residential-blog-right-sidebar md:block">
           <aside className="residential">
             <div className="residential-filter">
               <h3 className="filter-title">Filter Hotels</h3>
 
-              {/* Search by Name */}
               <div className="filter-group">
                 <label className="filter-label">Search Hotels</label>
-                <input
-                  type="text"
-                  placeholder="Enter hotel name or description"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="filter-input"
-                />
+                <input type="text" placeholder="Name or description" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="filter-input" />
               </div>
 
-              {/* Location Filters */}
-              <div className="filter-group">
+              <div className="filter-group position-relative">
                 <label className="filter-label">State</label>
-                <select
-                  value={selectedState}
-                  onChange={(e) => setSelectedState(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">All States</option>
-                  {states.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                <div className="filter-input d-flex align-items-center justify-content-between cursor-pointer" onClick={() => setShowStateDropdown(!showStateDropdown)}>
+                  <span>{selectedState || "-Select State-"}</span> <span>Down Arrow</span>
+                </div>
+                {showStateDropdown && (
+                  <div className="position-absolute w-100 bg-white border rounded shadow mt-1" style={{ zIndex: 1000, maxHeight: "300px", overflowY: "auto" }}>
+                    <input type="text" placeholder="Search state..." value={stateSearch} onChange={e => setStateSearch(e.target.value)} className="filter-input border-0 border-bottom" autoFocus onClick={e => e.stopPropagation()} />
+                    {filteredStates.map(s => (
+                      <div key={s} className="p-2 hover-bg-light cursor-pointer" onClick={() => { setSelectedState(s); setShowStateDropdown(false); setStateSearch(""); }}>
+                        {s}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div className="filter-group">
+              <div className="filter-group position-relative">
                 <label className="filter-label">City</label>
-                <select
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">All Cities</option>
-                  {cities.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                <div className="filter-input d-flex align-items-center justify-content-between cursor-pointer" onClick={() => setShowCityDropdown(!showCityDropdown)}>
+                  <span>{selectedCity || "-Select City-"}</span> <span>Down Arrow</span>
+                </div>
+                {showCityDropdown && (
+                  <div className="position-absolute w-100 bg-white border rounded shadow mt-1" style={{ zIndex: 1000, maxHeight: "300px", overflowY: "auto" }}>
+                    <input type="text" placeholder="Search city..." value={citySearch} onChange={e => setCitySearch(e.target.value)} className="filter-input border-0 border-bottom" autoFocus onClick={e => e.stopPropagation()} />
+                    {filteredCities.map(c => (
+                      <div key={c} className="p-2 hover-bg-light cursor-pointer" onClick={() => { setSelectedCity(c); setShowCityDropdown(false); setCitySearch(""); }}>
+                        {c}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Price Range */}
               <div className="filter-group">
                 <label className="filter-label">Price Range (₹/night)</label>
                 <div className="d-flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    value={filterPriceMin}
-                    onChange={(e) => setFilterPriceMin(e.target.value)}
-                    className="filter-input flex-grow-1"
-                    style={{ maxWidth: "80px" }}
-                  />
+                  <input type="number" placeholder="Min" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} className="filter-input" />
                   <span className="align-self-center">to</span>
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    value={filterPriceMax}
-                    onChange={(e) => setFilterPriceMax(e.target.value)}
-                    className="filter-input flex-grow-1"
-                    style={{ maxWidth: "80px" }}
-                  />
+                  <input type="number" placeholder="Max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} className="filter-input" />
                 </div>
               </div>
 
-              {/* Rating Filter */}
               <div className="filter-group">
                 <label className="filter-label">Minimum Rating</label>
-                <select
-                  value={filterRatingMin}
-                  onChange={(e) => setFilterRatingMin(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">Any Rating</option>
-                  <option value="1">1+ ⭐</option>
-                  <option value="2">2+ ⭐</option>
-                  <option value="3">3+ ⭐</option>
-                  <option value="4">4+ ⭐</option>
+                <select value={filterRatingMin} onChange={e => setFilterRatingMin(e.target.value)} className="filter-select">
+                  <option value="">Any</option>
+                  <option value="1">1+ Star</option>
+                  <option value="2">2+ Star</option>
+                  <option value="3">3+ Star</option>
+                  <option value="4">4+ Star</option>
                 </select>
               </div>
 
-              {/* Amenities Filter */}
               <div className="filter-group">
                 <label className="filter-label">Amenities</label>
                 <div className="amenities-checkboxes">
-                  {['WiFi', 'AC', 'Swimming Pool', 'Gym', 'Spa', 'Restaurant', 'Parking', 'Room Service'].map((amenity) => (
+                  {['WiFi', 'AC', 'Swimming Pool', 'Gym', 'Spa', 'Restaurant', 'Parking', 'Room Service'].map(amenity => (
                     <label key={amenity} className="d-block mb-1">
                       <input
                         type="checkbox"
-                        value={amenity}
                         checked={selectedAmenities.includes(amenity)}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setSelectedAmenities(prev => 
-                            checked 
-                              ? [...prev, amenity] 
-                              : prev.filter(a => a !== amenity)
-                          );
-                        }}
+                        onChange={e => setSelectedAmenities(prev =>
+                          e.target.checked ? [...prev, amenity] : prev.filter(a => a !== amenity)
+                        )}
                         className="me-2"
                       />
-                      <FontAwesomeIcon 
-                        icon={amenityIcons[amenity] || faBed} 
-                        className="me-1" 
-                        style={{ fontSize: "0.8rem" }}
-                      />
+                      <FontAwesomeIcon icon={amenityIcons[amenity] || faBed} className="me-1" />
                       {amenity}
                     </label>
                   ))}
                 </div>
               </div>
 
-              {/* Update Location Button */}
               {location && (
-                <div className="filter-group">
-                  <button 
-                    className="btn btn-outline-primary w-100"
-                    onClick={() => fetchNearbyHotels(location.latitude, location.longitude)}
-                  >
-                    🔄 Update Nearby Hotels
-                  </button>
-                </div>
+                <button className="btn btn-outline-primary w-100 mb-3" onClick={() => fetchNearbyHotels(location.latitude, location.longitude)}>
+                  Update Nearby Hotels
+                </button>
               )}
-
-              <div className="filter-group mt-3">
-                <div className="text-center">
-                  <small className="text-muted">
-                    Showing {filteredHotels.length} of {hotels.length} hotels
-                    {location && ` within ${Math.round((filteredHotels[0]?.distance || 0) * 100) / 100} km`}
-                  </small>
-                </div>
-              </div>
             </div>
           </aside>
         </div>
       </div>
 
-      {/* Additional CSS for better styling */}
       <style jsx>{`
-        .amenities-preview .badge {
-          fontSize: 0.7rem;
-          padding: 0.25rem 0.5rem;
-        }
-        .amenities-checkboxes {
-          max-height: 200px;
-          overflow-y: auto;
-        }
-        .amenities-checkboxes label {
-          fontSize: 0.85rem;
-          cursor: pointer;
-        }
-        .distance-text {
-          background: rgba(14, 116, 144, 0.1);
-          padding: 2px 6px;
-          border-radius: 3px;
-        }
+        .cursor-pointer { cursor: pointer; }
+        .hover-bg-light:hover { background-color: #f8f9fa; }
+        .amenities-checkboxes { max-height: 200px; overflow-y: auto; }
       `}</style>
     </div>
   );

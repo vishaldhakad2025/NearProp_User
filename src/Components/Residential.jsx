@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -24,7 +24,6 @@ const API_CONFIG = {
 const RESIDENTIAL_TYPES = [
   "multi_family_home",
   "single_family_home",
-
   "villa",
   "apartment",
   "house",
@@ -112,12 +111,71 @@ const formatPropertyType = (type) => {
   const typeMap = {
     multi_family_home: "Multi Family Home",
     single_family_home: "Single Family Home",
-   
     villa: "Villa",
     apartment: "Apartment",
     house: "House",
   };
   return typeMap[type?.toLowerCase()] || type || "Unknown";
+};
+
+// Searchable Dropdown Component (added for State & City)
+const SearchableDropdown = ({ options, value, onChange, placeholder, disabled = false }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  const filteredOptions = options.filter(option =>
+    option.label.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const selectedLabel = options.find(opt => opt.value === value)?.label || '';
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={wrapperRef} className="relative w-full">
+      <input
+        type="text"
+        value={isOpen ? searchTerm : selectedLabel}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        onFocus={() => setIsOpen(true)}
+        onClick={() => setIsOpen(true)}
+        placeholder={selectedLabel || placeholder}
+        disabled={disabled}
+        className="filter-input"
+        readOnly={false}
+      />
+      {isOpen && (
+        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+          {filteredOptions.length === 0 ? (
+            <div className="p-2 text-gray-500 text-sm">No options found</div>
+          ) : (
+            filteredOptions.map((option) => (
+              <div
+                key={option.value}
+                onClick={() => {
+                  onChange({ target: { value: option.value } });
+                  setSearchTerm('');
+                  setIsOpen(false);
+                }}
+                className="p-2 hover:bg-blue-100 cursor-pointer text-sm"
+              >
+                {option.label}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
 function Residential() {
@@ -634,18 +692,12 @@ function Residential() {
 
               <div className="filter-group">
                 <label className="filter-label">State</label>
-                <select
+                <SearchableDropdown
+                  options={states.map(s => ({ value: s, label: s }))}
                   value={selectedState}
                   onChange={(e) => setSelectedState(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">All States</option>
-                  {states.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="All States"
+                />
               </div>
 
               {/* <div className="filter-group">
@@ -666,18 +718,12 @@ function Residential() {
 
               <div className="filter-group">
                 <label className="filter-label">City</label>
-                <select
+                <SearchableDropdown
+                  options={cities.map(c => ({ value: c, label: c }))}
                   value={selectedCity}
                   onChange={(e) => setSelectedCity(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="">All Cities</option>
-                  {cities.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="All Cities"
+                />
               </div>
 
               <div className="filter-group">

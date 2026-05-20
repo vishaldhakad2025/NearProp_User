@@ -13,22 +13,17 @@
 .sidebar {
   flex: 1;
   max-width: 22rem;
-  /* border: 2px solid red; */
   padding: 1rem;
   background: #ffffff;
   border-radius: var(--border-radius);
   box-shadow: var(--shadow);
-
-  /* 👇 Sticky so it stays under header */
   position: sticky;
-  top: 6rem; /* adjust according to navbar height */
+  top: 6rem;
   align-self: flex-start;
-
-  max-height: calc(100vh - 7rem); /* footer overlap avoid */
+  max-height: calc(100vh - 7rem);
   overflow-y: auto;
   scrollbar-width: none;
-
-  margin-left: auto; /* align right in layout */
+  margin-left: auto;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -78,6 +73,7 @@
   background: #f8fafc;
   border-radius: 8px;
   text-align: center;
+  position: relative;
 }
 
 .sidebar-ad h3 {
@@ -87,33 +83,198 @@
   margin-bottom: 0.5rem;
 }
 
-.sidebar-ad img {
+.ad-slider {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.ad-slide {
+  display: flex;
   width: 100%;
-  height: 7rem;
+  transition: transform 0.5s ease;
+}
+
+.ad-slide-item {
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ad-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin: 12px 12px 8px;
+  word-break: break-word;
+  text-align: left;
+}
+
+.ad-image {
+  width: 100%;
+  height: auto;
+  max-height: 200px;
   object-fit: cover;
-  border-radius: 8px;
-  margin-bottom: 0.5rem;
+  transition: transform 0.3s ease;
 }
 
-.sidebar-ad p {
-  font-size: 0.8rem;
+.ad-image:hover {
+  transform: scale(1.02);
+}
+
+.ad-description {
+  font-size: 0.85rem;
   color: var(--text-grey);
-  margin-bottom: 0.5rem;
+  line-height: 1.6;
+  margin: 8px 12px 12px;
+  flex-grow: 1;
+  text-align: left;
 }
 
-.sidebar-ad .view-btn {
-  background: var(--secondary-color);
-  color: #ffffff;
+.ad-contact-icons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 12px;
+  flex-wrap: wrap;
+}
+
+.ad-contact-icons a {
+  font-size: 1.4rem;
+  transition: color 0.3s ease, transform 0.2s ease;
+  text-decoration: none;
+}
+
+.ad-contact-icons a:hover {
+  transform: scale(1.1);
+}
+
+.ad-contact-icons a.call {
+  color: #22c55e;
+}
+
+.ad-contact-icons a.call:hover {
+  color: #16a34a;
+}
+
+.ad-contact-icons a.mail {
+  color: #3b82f6;
+}
+
+.ad-contact-icons a.mail:hover {
+  color: #2563eb;
+}
+
+.ad-contact-icons a.whatsapp {
+  color: #25D366;
+}
+
+.ad-contact-icons a.whatsapp:hover {
+  color: #1da851;
+}
+
+.ad-contact-icons a.instagram {
+  color: #E4405F;
+}
+
+.ad-contact-icons a.instagram:hover {
+  color: #C13584;
+}
+
+.ad-contact-icons a.facebook {
+  color: #1877F2;
+}
+
+.ad-contact-icons a.facebook:hover {
+  color: #0C63D4;
+}
+
+.ad-contact-icons a.youtube {
+  color: #FF0000;
+}
+
+.ad-contact-icons a.youtube:hover {
+  color: #CC0000;
+}
+
+.ad-contact-icons a.website {
+  color: #6B7280;
+}
+
+.ad-contact-icons a.website:hover {
+  color: #4B5563;
+}
+
+.ad-nav-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   cursor: pointer;
-  font-size: 0.8rem;
-  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  z-index: 10;
+  transition: background 0.3s ease;
 }
 
-.sidebar-ad .view-btn:hover {
-  background: #00b7b7;
+.ad-nav-button:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.ad-nav-button.left {
+  left: 8px;
+}
+
+.ad-nav-button.right {
+  right: 8px;
+}
+
+.ad-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.ad-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d1d5db;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.ad-dot.active {
+  background: #3b82f6;
+}
+
+.spinner {
+  padding: 30px;
+  text-align: center;
+}
+
+.spinner-icon {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Agent Info */
@@ -124,6 +285,7 @@
   background: #f8fafc;
   border-radius: 8px;
   margin-bottom: 1rem;
+  gap: 0.75rem;
 }
 
 .agent-photo {
@@ -131,7 +293,7 @@
   height: 3rem;
   border-radius: 50%;
   object-fit: cover;
-  margin-right: 0.75rem;
+  flex-shrink: 0;
 }
 
 .agent-details {
@@ -147,17 +309,33 @@
 .agent-details .agent-contact {
   display: flex;
   gap: 0.5rem;
-  margin-top: 0.4rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
 }
 
-.agent-details .agent-contact a {
-  color: var(--secondary-color);
+.ad-contact-button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: white;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   text-decoration: none;
   font-size: 0.75rem;
+  transition: opacity 0.3s ease;
 }
 
-.agent-details .agent-contact a:hover {
-  text-decoration: underline;
+.ad-contact-button:hover {
+  opacity: 0.85;
+}
+
+.ad-contact-button.call {
+  background: #22c55e;
+}
+
+.ad-contact-button.whatsapp {
+  background: #25D366;
 }
 
 /* Contact Form */
@@ -171,6 +349,7 @@
   font-size: 1rem;
   font-weight: 600;
   margin-bottom: 0.75rem;
+  color: var(--text-dark);
 }
 
 .contact-form {
@@ -182,6 +361,13 @@
 .contact-form .form-group {
   display: flex;
   flex-direction: column;
+}
+
+.contact-form .form-group label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  margin-bottom: 0.3rem;
 }
 
 .contact-form input,
@@ -209,10 +395,11 @@
   background: var(--primary-color);
   color: #ffffff;
   border: none;
-  padding: 0.5rem 1rem;
+  padding: 0.6rem 1rem;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
   transition: var(--transition);
 }
 
@@ -230,9 +417,10 @@
 @media (max-width: 1024px) {
   .sidebar {
     max-width: 100%;
-    position: static; /* Tablet/mobile pe normal flow */
+    position: static;
     margin-top: 1rem;
     max-height: none;
+    margin-left: 0;
   }
 
   .quick-info-grid {
@@ -241,8 +429,12 @@
 }
 
 @media (max-width: 768px) {
-  .sidebar-ad img {
-    height: 5rem;
+  .sidebar {
+    padding: 0.875rem;
+  }
+
+  .ad-image {
+    max-height: 180px;
   }
 
   .agent-info {
@@ -253,30 +445,69 @@
   .agent-photo {
     margin-bottom: 0.5rem;
   }
+
+  .agent-details .agent-contact {
+    justify-content: flex-start;
+  }
+
+  .ad-nav-button {
+    width: 32px;
+    height: 32px;
+    font-size: 0.9rem;
+  }
+
+  .ad-title {
+    font-size: 1.1rem;
+  }
 }
 
 @media (max-width: 480px) {
   .sidebar {
     width: 100%;
     padding: 0.75rem;
-    /* border: 2px solid red; */
-
   }
 
   .quick-info,
   .sidebar-ad,
   .agent-info,
   .contact-container {
-    padding: 0.5rem;
+    padding: 0.6rem;
   }
 
-  .sidebar-ad img {
-    height: 10rem;
-  
+  .ad-image {
+    max-height: 160px;
   }
 
   .contact-form input,
   .contact-form textarea {
     font-size: 0.75rem;
+  }
+
+  .ad-contact-icons a {
+    font-size: 1.2rem;
+  }
+
+  .ad-title {
+    font-size: 1rem;
+    margin: 8px 8px 6px;
+  }
+
+  .ad-description {
+    font-size: 0.8rem;
+    margin: 6px 8px 10px;
+  }
+
+  .ad-contact-icons {
+    gap: 10px;
+    margin: 10px 8px;
+  }
+
+  .agent-contact {
+    width: 100%;
+  }
+
+  .ad-contact-button {
+    flex: 1;
+    justify-content: center;
   }
 }

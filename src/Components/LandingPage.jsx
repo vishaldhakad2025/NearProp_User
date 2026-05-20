@@ -125,7 +125,82 @@ const getUserLocation = () => {
   });
 };
 
-// 🔹 CitySearch Component for typeable city input
+// 🔹 Reusable Searchable Dropdown with Type + Select
+const SearchableDropdown = ({ label, name, value, onChange, options, placeholder, disabled }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(value || '');
+
+  const filteredOptions = options.filter(option =>
+    option.label.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setSearchTerm(val);
+    onChange({ target: { name, value: val } });
+    setIsOpen(true);
+  };
+
+  const handleOptionClick = (val) => {
+    setSearchTerm(val);
+    onChange({ target: { name, value: val } });
+    setIsOpen(false);
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <label style={{ fontSize: '13px' }}>{label}</label>
+      <input
+        type="text"
+        className="search-select"
+        value={searchTerm}
+        onChange={handleInputChange}
+        onFocus={() => setIsOpen(true)}
+        placeholder={placeholder}
+        disabled={disabled}
+        style={{ width: '100%', padding: '8px', fontSize: '15px' }}
+      />
+      {isOpen && filteredOptions.length > 0 && (
+        <ul
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            background: 'white',
+            border: '1px solid #ccc',
+            borderRadius: '6px',
+            maxHeight: '200px',
+            overflowY: 'auto',
+            zIndex: 10,
+            margin: 0,
+            padding: 0,
+            listStyle: 'none',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+          }}
+        >
+          {filteredOptions.map((option) => (
+            <li
+              key={option.value}
+              onMouseDown={() => handleOptionClick(option.value)}
+              style={{
+                padding: '10px 12px',
+                cursor: 'pointer',
+                backgroundColor: option.value === value ? '#f0f0f0' : 'white',
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = option.value === value ? '#f0f0f0' : 'white'}
+            >
+              {option.label}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+
+// 🔹 CitySearch Component (unchanged)
 const CitySearch = ({ formData, handleFormChange, isLoading, cities }) => {
   const [searchTerm, setSearchTerm] = useState(formData.city || '');
   const [isOpen, setIsOpen] = useState(false);
@@ -156,13 +231,14 @@ const CitySearch = ({ formData, handleFormChange, isLoading, cities }) => {
         className="search-select"
         value={searchTerm}
         onChange={handleInputChange}
-        onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+        onFocus={() => setIsOpen(true)}
         placeholder="Type or select a city"
         disabled={isLoading}
         style={{ width: '100%', padding: '8px', fontSize: '15px' }}
       />
       {isOpen && filteredCities.length > 0 && (
         <ul
+          onMouseLeave={() => setIsOpen(false)}
           style={{
             width: "100%",
             padding: "8px 12px",
@@ -178,7 +254,7 @@ const CitySearch = ({ formData, handleFormChange, isLoading, cities }) => {
             listStyle: "none",
             margin: 0,
             boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-            top: "50px", // Adjusted to open below input field (height of input + label + padding)
+            top: "50px",
           }}
         >
           <li
@@ -190,23 +266,23 @@ const CitySearch = ({ formData, handleFormChange, isLoading, cities }) => {
               fontSize: '15px',
               background: searchTerm === '' ? '#f0f0f0' : '#fff',
             }}
-            onMouseEnter={(e) => (e.target.style.background = '#f0f0f0')}
-            onMouseLeave={(e) => (e.target.style.background = searchTerm === '' ? '#f0f0f0' : '#fff')}
+            onMouseEnter={(e) => e.target.style.background = '#f0f0f0'}
+            onMouseLeave={(e) => e.target.style.background = searchTerm === '' ? '#f0f0f0' : '#fff'}
           >
             All Cities
           </li>
           {filteredCities.map((city) => (
             <li
               key={city}
-              onClick={() => handleOptionClick(city)}
+              onMouseDown={() => handleOptionClick(city)}
               style={{
                 padding: '8px',
                 cursor: 'pointer',
                 fontSize: '15px',
                 background: searchTerm === city ? '#f0f0f0' : '#fff',
               }}
-              onMouseEnter={(e) => (e.target.style.background = '#f0f0f0')}
-              onMouseLeave={(e) => (e.target.style.background = searchTerm === city ? '#f0f0f0' : '#fff')}
+              onMouseEnter={(e) => e.target.style.background = '#f0f0f0'}
+              onMouseLeave={(e) => e.target.style.background = searchTerm === city ? '#f0f0f0' : '#fff'}
             >
               {city}
             </li>
@@ -224,6 +300,7 @@ function LandingPage() {
     state: '',
     district: '',
     bedrooms: '',
+    areaRange: '',
     priceRange: '',
     status: 'all',
   });
@@ -239,7 +316,7 @@ function LandingPage() {
   const [locationError, setLocationError] = useState(null);
   const navigate = useNavigate();
 
-  // 🔹 Fetch user location
+  // Fetch user location
   useEffect(() => {
     getUserLocation().then((loc) => {
       if (loc) {
@@ -251,7 +328,7 @@ function LandingPage() {
     });
   }, []);
 
-  // Fetch states, districts, and cities from main API
+  // Fetch states, districts, and cities
   useEffect(() => {
     const fetchDistricts = async () => {
       setIsLoading(true);
@@ -302,7 +379,6 @@ function LandingPage() {
   const handleSearch = async (e) => {
     e.preventDefault();
 
-    // Validation with toast
     if (!formData.propertyType && !formData.city && !formData.bedrooms && !formData.areaRange && !formData.priceRange && formData.status === 'all') {
       toast.error("Please select at least one filter to search!", {
         position: 'top-center',
@@ -320,7 +396,6 @@ function LandingPage() {
       let apiUrl = '';
       let isMainAPI = true;
 
-      // Determine which API to use based on status or propertyType
       if (formData.status === 'pg' || formData.status === 'hostel' || formData.propertyType === 'PG' || formData.propertyType === 'HOSTEL') {
         apiUrl = `${API_CONFIG.pgHostelBaseUrl}/${API_CONFIG.apiPrefix}/public/properties`;
         isMainAPI = false;
@@ -458,21 +533,38 @@ function LandingPage() {
         }));
       }
 
-      // Client-side filtering
+      // Client-side filtering (areaRange and priceRange now support free text)
       properties = properties.filter(p => {
         let matches = true;
         if (formData.state && p.state !== formData.state) matches = false;
         if (formData.district && p.district !== formData.district) matches = false;
         if (formData.city && p.city !== formData.city) matches = false;
         if (formData.bedrooms && formData.propertyType !== 'PLOT' && Number(p.bedrooms) < Number(formData.bedrooms)) matches = false;
+
+        // Free text area range support for PLOT
         if (formData.areaRange && formData.propertyType === 'PLOT') {
-          const [minArea, maxArea] = formData.areaRange.split('-').map(Number);
-          if (p.area < minArea || p.area > maxArea) matches = false;
+          const input = formData.areaRange.trim();
+          if (input.includes('-')) {
+            const [min, max] = input.split('-').map(Number);
+            if (isNaN(min) || isNaN(max) || p.area < min || p.area > max) matches = false;
+          } else {
+            const val = Number(input);
+            if (!isNaN(val) && p.area !== val) matches = false;
+          }
         }
+
+        // Free text price range support
         if (formData.priceRange) {
-          const [minPrice, maxPrice] = formData.priceRange.split('-').map(Number);
-          if (p.price < minPrice || p.price > maxPrice) matches = false;
+          const input = formData.priceRange.trim();
+          if (input.includes('-')) {
+            const [min, max] = input.split('-').map(Number);
+            if (isNaN(min) || isNaN(max) || p.price < min || p.price > max) matches = false;
+          } else {
+            const val = Number(input);
+            if (!isNaN(val) && p.price !== val) matches = false;
+          }
         }
+
         if (formData.propertyType && p.type.toUpperCase() !== formData.propertyType) matches = false;
         if (formData.status && formData.status !== 'all' && formData.status !== 'rent' && formData.status !== 'sale') {
           if (p.type.toUpperCase() !== formData.status.toUpperCase()) matches = false;
@@ -509,8 +601,8 @@ function LandingPage() {
   };
 
   const categories = [
-    { key: "rent", label: "For Rent", icon: faHouse, color: "#2ecc71", path: "/forrent" },
-    { key: "sale", label: "For Sale", icon: faHouse, color: "#3498db", path: "/forsell" },
+    { key: "rent", label: "Rent", icon: faHouse, color: "#2ecc71", path: "/forrent" },
+    { key: "sale", label: "Sale", icon: faHouse, color: "#3498db", path: "/forsell" },
     { key: "apartment", label: "Apartment", icon: faBuilding, color: "#9b59b6", path: "/apartment" },
     { key: "plot", label: "Plot", icon: faBuildingColumns, color: "#e74c3c", path: "/plot" },
     { key: "hotel", label: "Hotel", icon: faHotel, color: "#f1c40f", path: "/hotel" },
@@ -524,11 +616,27 @@ function LandingPage() {
     navigate(cat.path);
   };
 
+  const areaOptions = [
+    { value: '', label: 'Any Area' },
+    { value: '500-1000', label: '500-1000 Sq Ft' },
+    { value: '1000-2000', label: '1000-2000 Sq Ft' },
+    { value: '2000-5000', label: '2000-5000 Sq Ft' },
+    { value: '5000-10000', label: '5000-10000 Sq Ft' },
+  ];
+
+  const priceOptions = [
+    { value: '', label: 'Any Price' },
+    { value: '10000-20000', label: 'Rs 10K-20K' },
+    { value: '30000-40000', label: 'Rs 30K-40K' },
+    { value: '50000-100000', label: 'Rs 50K-100K' },
+    { value: '100000-500000', label: 'Rs 100K-500K' },
+  ];
+
   const renderForm = () => (
     <form className="search-form" onSubmit={handleSearch}>
       <div className="form-grid">
         <div className='search-form-container'>
-          <label className="looking" style={{ fontSize: '13px' }}>LOOKIN G FOR</label>
+          <label className="looking" style={{ fontSize: '13px' }}>LOOKING FOR</label>
           <select name="propertyType" className="search-select" value={formData.propertyType} onChange={handleFormChange} disabled={isLoading}>
             <option value="">Select Property</option>
             <option value="APARTMENT">Apartment</option>
@@ -536,7 +644,6 @@ function LandingPage() {
             <option value="OFFICE">Office</option>
             <option value="HOTEL">Hotel</option>
             <option value="BANQUET">Banquet</option>
-            {/* <option value="CONDO">Condo</option> */}
             <option value="MULTI_FAMILY_HOME">Multi Family Home</option>
             <option value="SINGLE_FAMILY_HOME">Single Family Home</option>
             <option value="STUDIO">Studio</option>
@@ -554,127 +661,61 @@ function LandingPage() {
           cities={cities}
         />
 
-        {/* {formData.propertyType && formData.propertyType !== 'PLOT' ? (
-          <div>
-            <label className="property" style={{ fontSize: '13px' }}>BEDROOMS</label>
-            <select
-              name="bedrooms"
-              className="search-select"
-              value={formData.bedrooms}
-              onChange={handleFormChange}
-              disabled={isLoading}
-            >
-              <option value="">Select Bedrooms</option>
-              <option value="1">1 BHK</option>
-              <option value="2">2 BHK</option>
-              <option value="3">3 BHK</option>
-              <option value="4">4+ BHK</option>
-            </select>
-          </div>
-        ) : formData.propertyType === 'PLOT' ? (
-          <div>
-            <label className="property" style={{ fontSize: '13px' }}>AREA RANGE (Sq Ft)</label>
-            <select
-              name="areaRange"
-              className="search-select"
-              value={formData.areaRange}
-              onChange={handleFormChange}
-              disabled={isLoading}
-            >
-              <option value="">Select Area Range</option>
-              <option value="500-1000">500-1000 Sq Ft</option>
-              <option value="1000-2000">1000-2000 Sq Ft</option>
-              <option value="2000-5000">2000-5000 Sq Ft</option>
-              <option value="5000-10000">5000-10000 Sq Ft</option>
-            </select>
-          </div>
+        {/* Conditional Fields */}
+        {formData.propertyType ? (
+          <>
+            {['APARTMENT', 'VILLA', 'SINGLE_FAMILY_HOME', 'MULTI_FAMILY_HOME', 'STUDIO'].includes(formData.propertyType) && (
+              <div>
+                <label className="property" style={{ fontSize: '13px' }}>BEDROOMS</label>
+                <select
+                  name="bedrooms"
+                  className="search-select"
+                  value={formData.bedrooms}
+                  onChange={handleFormChange}
+                  disabled={isLoading}
+                >
+                  <option value="">Select Bedrooms</option>
+                  <option value="1">1 BHK</option>
+                  <option value="2">2 BHK</option>
+                  <option value="3">3 BHK</option>
+                  <option value="4">4+ BHK</option>
+                </select>
+              </div>
+            )}
+
+            {formData.propertyType === 'PLOT' && (
+              <SearchableDropdown
+                label="AREA RANGE (Sq Ft)"
+                name="areaRange"
+                value={formData.areaRange}
+                onChange={handleFormChange}
+                options={areaOptions}
+                placeholder="Type or select area range"
+                disabled={isLoading}
+              />
+            )}
+          </>
         ) : (
           <div>
-            <label className="property" style={{ fontSize: '13px' }}>PROPERTY SIZE</label>
-            <select
-              name="bedrooms"
-              className="search-select"
-              value={formData.bedrooms}
-              onChange={handleFormChange}
-              disabled={isLoading}
-            >
-              <option value="">Select Bedrooms</option>
-              <option value="1">1 BHK</option>
-              <option value="2">2 BHK</option>
-              <option value="3">3 BHK</option>
-              <option value="4">4+ BHK</option>
+            <label className="property" style={{ fontSize: '13px', color: '#888' }}>
+              FIRST SELECT PROPERTY TYPE
+            </label>
+            <select className="search-select" disabled style={{ backgroundColor: '#f5f5f5', color: '#aaa' }}>
+              <option value="">— Choose property first —</option>
             </select>
           </div>
-        )} */}
+        )}
 
-
-        {/* Conditional Field after City */}
-{formData.propertyType ? (
-  <>
-    {['APARTMENT', 'VILLA', 'SINGLE_FAMILY_HOME', 'MULTI_FAMILY_HOME', 'STUDIO'].includes(formData.propertyType) && (
-      <div>
-        <label className="property" style={{ fontSize: '13px' }}>BEDROOMS</label>
-        <select
-          name="bedrooms"
-          className="search-select"
-          value={formData.bedrooms}
+        {/* PRICE RANGE - Now searchable + typeable */}
+        <SearchableDropdown
+          label="PRICE RANGE"
+          name="priceRange"
+          value={formData.priceRange}
           onChange={handleFormChange}
+          options={priceOptions}
+          placeholder="Type or select price range"
           disabled={isLoading}
-        >
-          <option value="">Select Bedrooms</option>
-          <option value="1">1 BHK</option>
-          <option value="2">2 BHK</option>
-          <option value="3">3 BHK</option>
-          <option value="4">4+ BHK</option>
-        </select>
-      </div>
-    )}
-
-    {formData.propertyType === 'PLOT' && (
-      <div>
-        <label className="property" style={{ fontSize: '13px' }}>AREA RANGE (Sq Ft)</label>
-        <select
-          name="areaRange"
-          className="search-select"
-          value={formData.areaRange || ''}
-          onChange={handleFormChange}
-          disabled={isLoading}
-        >
-          <option value="">Select Area Range</option>
-          <option value="500-1000">500-1000 Sq Ft</option>
-          <option value="1000-2000">1000-2000 Sq Ft</option>
-          <option value="2000-5000">2000-5000 Sq Ft</option>
-          <option value="5000-10000">5000-10000 Sq Ft</option>
-        </select>
-      </div>
-    )}
-  </>
-) : (
-  <div>
-    <label className="property" style={{ fontSize: '13px', color: '#888' }}>
-      FIRST SELECT PROPERTY TYPE
-    </label>
-    <select className="search-select" disabled style={{ backgroundColor: '#f5f5f5', color: '#aaa' }}>
-      <option value="">— Choose property first —</option>
-    </select>
-  </div>
-)}
-        <div>
-          <label className="property" style={{ fontSize: '13px' }}>PRICE RANGE</label>
-          <select
-            name="priceRange"
-            className="search-select"
-            value={formData.priceRange}
-            onChange={handleFormChange}
-            disabled={isLoading}
-          >
-            <option value="">Select Price Range</option>
-            <option value="10000-20000">Rs 10K-20K</option>
-            <option value="30000-40000">Rs 30K-40K</option>
-            <option value="50000-100000">Rs 50K-100K</option>
-            <option value="100000-500000">Rs 100K-500K</option>
-          </select>
-        </div>
+        />
 
         <div>
           <button
@@ -830,7 +871,6 @@ function LandingPage() {
           <div className="search-box" style={{ color: 'white', opacity: 0.9, padding: '10px', borderRadius: '10px' }}>
             <div className="tabs responsive-tabs" style={{ marginTop: '240px' }}>
               {[
-                { key: 'all', label: 'All Status', path: '/' },
                 { key: 'rent', label: 'Rent', path: '/forrent' },
                 { key: 'sale', label: 'Sale', path: '/forsell' },
                 { key: 'hotel', label: 'Hotel', path: '/hotel' },
@@ -843,8 +883,8 @@ function LandingPage() {
                   className={activeTab === tab.key ? 'active' : ''}
                   style={{
                     opacity: activeTab === tab.key ? 1 : 0.95,
-                    backgroundColor: activeTab === tab.key ? 'darkcyan' : 'white',
-                    color: activeTab === tab.key ? 'white' : 'darkcyan',
+                    backgroundColor: 'white',
+                    color: 'darkcyan',
                     padding: '5px',
                     width: '100px',
                     height: '55px',

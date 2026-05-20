@@ -22,6 +22,8 @@
   flex-direction: column;
   justify-content: center;
   padding: 24px;
+  
+  
 }
 
 .landing-right {
@@ -30,6 +32,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-right: 10px;
 }
 
 .landing-grid {
@@ -81,7 +84,7 @@
   padding: 20px;
   border-radius: 12px;
   width: 100%;
-  max-width: 520px;
+  max-width: 720px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;

@@ -20,6 +20,8 @@ import Apartment3 from '../assets/apartment.avif';
 import Apartment4 from '../assets/studio.jpg';
 import Apartment6 from '../assets/penthouse.avif';
 import Apartment7 from '../assets/villa.avif';
+import AuthError from "../Components/AuthError";
+
 
 const fallbackImages = [ApartmentImg, Apartment2, Apartment3, Apartment4, Apartment6, Apartment7];
 
@@ -55,6 +57,8 @@ function Apartment() {
   const [filteredProperties, setFilteredProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showAuthError, setShowAuthError] = useState(false);
+
 
   // Sidebar filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -121,10 +125,15 @@ function Apartment() {
           throw new Error(data.message || "API error");
         }
       } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+  if (err.message === "Authentication failed. Please log in again.") {
+    setShowAuthError(true);
+  } else {
+    setError(err.message);
+  }
+} finally {
+  setLoading(false);
+}
+
     };
 
     fetchProperties();
@@ -210,7 +219,8 @@ function Apartment() {
   };
 
   if (loading) return <div className="p-4">Loading apartments…</div>;
-  if (error) return <div className="p-4 text-danger">Error: {error}</div>;
+if (error && !showAuthError)
+  return <div className="p-4 text-danger">Error: {error}</div>;
 
   return (
     <div>
@@ -578,6 +588,11 @@ function Apartment() {
           </aside>
         </div>
       </div>
+      <AuthError
+  open={showAuthError}
+  onClose={() => setShowAuthError(false)}
+/>
+
     </div>
   );
 }

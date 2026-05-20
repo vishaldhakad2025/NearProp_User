@@ -578,40 +578,70 @@ h2:after {
 /* Features Section - Height Increased */
 .features-section {
   margin: 16px 0;
-  padding: 24px;                    /* Pehle 16px tha, ab 24px (zyada space inside) */
+  padding: 24px;
   background: #ffffff;
   border-radius: var(--border-radius);
   box-shadow: var(--shadow);
   animation: fadeIn 0.5s ease;
-  min-height: 380px;                /* NAYA: Minimum height badhayi (pehle nahi thi) */
+  /* REMOVED: min-height - ab dynamic hoga */
   display: flex;
   flex-direction: column;
 }
 
 .features-section h2 {
-  margin-bottom: 16px;              /* Heading ke neeche zyada gap */
+  margin-bottom: 16px;
 }
 
-/* Features List - Height aur space badhaya */
+/* Features List - Ab sirf jitni items hain utna hi space lega */
 .features-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 14px;                         /* Gap thoda badhaya (pehle 12px tha) */
+  gap: 14px;
   margin: 0;
   padding: 0;
-  flex-grow: 1;                     /* NAYA: List pura available space le */
-  min-height: 300px;                /* NAYA: List ki minimum height */
+  /* REMOVED: flex-grow aur min-height - ab content ke hisaab se adjust hoga */
 }
 
-/* Mobile par bhi height badhao */
+/* Feature Item */
+.feature-item {
+  padding: 12px 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  color: #333;
+  transition: background 0.2s ease;
+}
+
+.feature-item:hover {
+  background: #e9ecef;
+}
+
+.feature-item input[type="checkbox"] {
+  margin-right: 8px;
+  accent-color: var(--secondary-color);
+  cursor: default;
+}
+
+/* No Amenities Message */
+.features-list p {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #6c757d;
+  padding: 20px;
+  margin: 0;
+}
+
+/* Mobile par bhi dynamic height */
 @media (max-width: 900px) {
   .features-section {
     padding: 20px;
-    min-height: 340px;              /* Mobile/tablet par bhi badhi height */
+    /* REMOVED: min-height */
   }
 
   .features-list {
-    min-height: 280px;
+    /* REMOVED: min-height */
     gap: 12px;
   }
 }
@@ -619,17 +649,17 @@ h2:after {
 @media (max-width: 600px) {
   .features-section {
     padding: 18px;
-    min-height: 320px;              /* Chhote mobile par bhi acha size */
+    /* REMOVED: min-height */
   }
 
   .features-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
-    min-height: 260px;
+    /* REMOVED: min-height */
   }
 
   .feature-item {
-    padding: 10px 8px;              /* Item ke andar thoda zyada space */
+    padding: 10px 8px;
     font-size: 0.82rem;
   }
 }
@@ -637,13 +667,13 @@ h2:after {
 @media (max-width: 480px) {
   .features-section {
     padding: 16px;
-    min-height: 300px;
+    /* REMOVED: min-height */
   }
 
   .features-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
-    min-height: 240px;
+    /* REMOVED: min-height */
   }
 
   .feature-item {
@@ -651,12 +681,6 @@ h2:after {
     font-size: 0.78rem;
   }
 }
-
-.feature-item input[type="checkbox"] {
-  margin-right: 6px;
-  accent-color: var(--secondary-color);
-}
-
 /* Gallery Section */
 .gallery-section {
   margin: 16px 0;
@@ -1590,158 +1614,143 @@ h2:after {
     min-width: 100%;
   }
 }
-
-/* Hide Mobile Docker Card on Desktop */
-@media (min-width: 901px) {
-  .mobile-only {
-    display: none !important;
-  }
+/* Sponsored ADS badge */
+.ads {
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  background: #3b82f6;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  color: #ffffff;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  backdrop-filter: blur(4px);
+  z-index: 2;
+  font-size: 10px;
 }
+
+/* Ad Section Card */
 .ad-section {
   margin: 24px 0;
   padding: 24px;
-  background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(180deg, #ffffff, #f9fafb);
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
   position: relative;
 }
 
-.ad-container {
+/* 50-50 layout */
+.ad-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
   align-items: stretch;
-  height: 100%;
 }
 
+/* Image */
 .ad-image {
   width: 100%;
   height: 100%;
-  min-height: 300px;
+  min-height: 280px;
   object-fit: cover;
   border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  transition: transform 0.35s ease;
 }
 
 .ad-image:hover {
-  transform: scale(1.02);
+  transform: scale(1.03);
 }
 
-.ad-content {
+/* Content */
+.ad-content-section {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 100%;
-  padding: 8px 0;
 }
 
+/* Title */
 .ad-title {
   font-size: 1.5rem;
-  font-weight: 600;
-  color: #1f2937;
+  font-weight: 700;
+  color: #0f172a;
   margin-bottom: 8px;
-  text-align: left;
 }
 
+/* District / Location */
+.ad-location {
+  font-size: 0.85rem;
+  color: #0e7490;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+/* Description */
 .ad-description {
-  font-size: 0.9rem;
-  color: #4b5563;
+  font-size: 0.95rem;
+  color: #475569;
   line-height: 1.6;
-  margin: 0;
-  flex-grow: 1;
+  margin-bottom: 16px;
 }
 
-.ad-contact-icons {
+/* Validity */
+.ad-validity {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-bottom: 16px;
+}
+
+/* Social / Contact Icons */
+.ad-social-icons {
   display: flex;
-  justify-content: flex-end;
-  gap: 16px;
-  margin-top: 16px;
+  flex-wrap: wrap;
+  gap: 14px;
 }
 
-.ad-contact-icons a {
-  color: #006666;
-  font-size: 1.5rem;
-  transition: color 0.3s ease;
+.ad-social-icons a {
+  font-size: 1.4rem;
+  color: #144761;
+  /* background: #e0f2fe; */
+  padding: 10px;
+  border-radius: 50%;
+  transition: all 0.25s ease;
 }
 
-.ad-contact-icons a:hover {
-  color: #00CED1;
-}
+/* .ad-social-icons a:hover {
+  background: #0284c7;
+  color: #ffffff;
+  transform: translateY(-3px);
+} */
 
-@media (max-width: 1200px) {
-  .ad-container {
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .ad-layout {
     grid-template-columns: 1fr;
   }
 
   .ad-image {
-    height: 200px;
-    min-height: unset;
-  }
-}
-
-@media (max-width: 900px) {
-  .ad-section {
-    padding: 16px;
+    min-height: 200px;
   }
 
-  .ad-image {
-    height: 180px;
-  }
-
-  .ad-title {
-    font-size: 1.25rem;
-  }
-
-  .ad-description {
-    font-size: 0.85rem;
-  }
-
-  .ad-contact-icons a {
-    font-size: 1.2rem;
-  }
-}
-
-@media (max-width: 600px) {
-  .ad-section {
-    padding: 12px;
-  }
-
-  .ad-image {
-    height: 150px;
-  }
-
-  .ad-title {
-    font-size: 1.1rem;
-  }
-
-  .ad-description {
-    font-size: 0.8rem;
-  }
-
-  .ad-contact-icons a {
-    font-size: 1.1rem;
+  .ads {
+    right: 50%;
+    transform: translateX(50%);
   }
 }
 
 @media (max-width: 480px) {
   .ad-section {
-    padding: 8px;
-  }
-
-  .ad-image {
-    height: 120px;
+    padding: 14px;
   }
 
   .ad-title {
-    font-size: 1rem;
+    font-size: 1.2rem;
   }
 
   .ad-description {
-    font-size: 0.75rem;
-  }
-
-  .ad-contact-icons a {
-    font-size: 1rem;
+    font-size: 0.85rem;
   }
 }

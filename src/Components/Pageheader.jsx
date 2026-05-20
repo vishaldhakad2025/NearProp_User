@@ -44,29 +44,29 @@ const Pageheader = ({ path }) => {
     setMenuOpen((prev) => !prev);
   };
 
-const redirectToDashboard = (role, token) => {
-  // console.log('------ Redirecting with token:', token);
-  const tokenPart = token ? `?token=${token}` : getToken() ? `?token=${getToken()}` : '';
-  if (!tokenPart) {
-    showToast('please try again', 'somthing went wrong');
-  
-    return;
-  }
-  const urls = {
-    DEVELOPER: "https://developerdashboard.nearprop.com/dashboard",  // Add /landing
-    ADVISOR: "https://propertyadviser.nearprop.com/dashboard",
-    SELLER: "https://sellerdashboard.nearprop.com/landing", 
-    ADMIN: "https://admindashboard.nearprop.com/dashboard",
+  const redirectToDashboard = (role, token) => {
+    // console.log('------ Redirecting with token:', token);
+    const tokenPart = token ? `?token=${token}` : getToken() ? `?token=${getToken()}` : '';
+    if (!tokenPart) {
+      showToast('please try again', 'somthing went wrong');
+
+      return;
+    }
+    const urls = {
+      DEVELOPER: "https://developerdashboard.nearprop.com/",  // Add /landing
+      ADVISOR: "https://propertyadviser.nearprop.com/",
+      SELLER: "https://sellerdashboard.nearprop.com/",
+      ADMIN: "https://admindashboard.nearprop.com/dashboard",
+    };
+
+    const url = `${urls[role.toUpperCase()]}${tokenPart}`;
+    if (!url) {
+      showToast("Invalid role selected.", "error");
+      return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
   };
-
-  const url = `${urls[role.toUpperCase()]}${tokenPart}`;
-  if (!url) {
-    showToast("Invalid role selected.", "error");
-    return;
-  }
-
-  window.open(url, "_blank", "noopener,noreferrer");
-};
 
   // Open role request form or redirect if role already assigned
   const openRoleForm = () => {
@@ -110,7 +110,7 @@ const redirectToDashboard = (role, token) => {
     if (currentUser?.roles?.includes(upperRole)) {
       showToast(`You already have the ${selectedRole} role. Redirecting to dashboard.`, 'info');
       closeRoleForm();
-      redirectToDashboard(upperRole,token);
+      redirectToDashboard(upperRole, token);
       setIsLoading(false);
       return;
     }
@@ -141,7 +141,7 @@ const redirectToDashboard = (role, token) => {
           ...prev,
           roles: [...(prev?.roles || []), upperRole],
         }));
-        redirectToDashboard(upperRole,token);
+        redirectToDashboard(upperRole, token);
       }
     } catch (error) {
       console.error('Role request error:', error);
@@ -154,7 +154,7 @@ const redirectToDashboard = (role, token) => {
 
         if (backendMessage === 'User already has this role') {
           errorMsg = 'You are already registered. Redirecting to login...';
-          redirectToDashboard(upperRole,token);
+          redirectToDashboard(upperRole, token);
           return;
         }
 
@@ -203,6 +203,7 @@ const redirectToDashboard = (role, token) => {
     { path: '/commercialProperty', label: 'Commercial' },
     { path: '/termsandcondition', label: 'Terms and Conditions' },
     { path: '/privacyandpolicy', label: 'Privacy and Policy' },
+    { path: '/RefundPolicy', label: 'Refund Policy' },
   ];
 
   const getAuthData = () => {
@@ -262,7 +263,7 @@ const redirectToDashboard = (role, token) => {
 
       if (googleResponse.data.status === "OK") {
         const addressComponents = googleResponse.data.results[0].address_components;
-console.log(googleResponse.data)
+        console.log(googleResponse.data)
         let street = "";
         let colony = "";
         let place = "";
@@ -298,7 +299,7 @@ console.log(googleResponse.data)
         // ${street ? street + ", " : ""}
         // ${place ? place + ", " : ""
         // ${colony ? colony + ", " : ""}
-// console.log()
+        // console.log()
         const formattedLocation = `
           ${city}, ${state}`;
 
@@ -315,25 +316,66 @@ console.log(googleResponse.data)
   };
 
 
+  // const handleRefreshLocation = () => {
+  //   if (navigator.geolocation) {
+  //     setLoadingLocation(true);
+  //     navigator.geolocation.getCurrentPosition(
+  //       (position) => {
+  //         const { latitude, longitude } = position.coords;
+  //         // console.log("🔄 Refreshed coordinates:", latitude, longitude);
+  //         getCurrentLocation(latitude, longitude);
+  //       },
+  //       (error) => {
+  //         console.error("❌ Refresh location error:", error);
+  //         setCurrentLocation("Location not found");
+  //         setLoadingLocation(false);
+  //       },
+  //       { timeout: 1000 }
+  //     );
+  //   } else {
+  //     alert("Geolocation is not supported by your browser");
+  //   }
+  // };
+
+
+
   const handleRefreshLocation = () => {
-    if (navigator.geolocation) {
-      setLoadingLocation(true);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          // console.log("🔄 Refreshed coordinates:", latitude, longitude);
-          getCurrentLocation(latitude, longitude);
-        },
-        (error) => {
-          console.error("❌ Refresh location error:", error);
-          setCurrentLocation("Location not found");
-          setLoadingLocation(false);
-        },
-        { timeout: 1000 }
-      );
-    } else {
+    if (!navigator.geolocation) {
       alert("Geolocation is not supported by your browser");
+      return;
     }
+
+    setLoadingLocation(true);
+
+    // 🔥 STEP 1: Remove old location from localStorage
+    localStorage.removeItem("currentLocation");
+    localStorage.removeItem("latitude");
+    localStorage.removeItem("longitude");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+
+        // 🔥 STEP 2: Fetch new location (API / reverse geocode)
+        getCurrentLocation(latitude, longitude);
+
+        // 🔥 STEP 3: Store new location in localStorage
+        localStorage.setItem("latitude", latitude);
+        localStorage.setItem("longitude", longitude);
+
+        setLoadingLocation(false);
+      },
+      (error) => {
+        console.error("❌ Refresh location error:", error);
+        setCurrentLocation("Location not found");
+        setLoadingLocation(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0, // 🔥 ensures fresh location
+      }
+    );
   };
 
 
@@ -774,23 +816,38 @@ console.log(googleResponse.data)
                         {currentUser.roles.includes("DEVELOPER") && (
                           <button
                             className="dashboard-btn"
-                            onClick={() => redirectToDashboard("DEVELOPER",token)}
+                            onClick={() => redirectToDashboard("DEVELOPER", token)}
                           >
                             <FaUserCog className="icon" /> Developer Dashboard
                           </button>
                         )}
+
+                        <button
+                          className="dashboard-btn"
+                          onClick={() => window.open("https://pgandhostel.nearprop.com/", "_blank")}
+                        >
+                          🏠 PG & Hostel
+                        </button>
+
+                        <button
+                          className="dashboard-btn"
+                          onClick={() => window.open("https://hotelsandbanquets.nearprop.com/", "_blank")}
+                        >
+                          🏨 Hotel & Banquet
+                        </button>
+
                         {currentUser.roles.includes("SELLER") && (
                           <button
                             className="dashboard-btn"
-                            onClick={() => redirectToDashboard("SELLER",token)}
+                            onClick={() => redirectToDashboard("SELLER", token)}
                           >
-                            <FaUserTie className="icon" /> Seller Dashboard
+                            <FaUserTie className="icon" /> Seller/Owner Dashboard
                           </button>
                         )}
                         {currentUser.roles.includes("ADVISOR") && (
                           <button
                             className="dashboard-btn"
-                            onClick={() => redirectToDashboard("ADVISOR",token)}
+                            onClick={() => redirectToDashboard("ADVISOR", token)}
                           >
                             <FaUserShield className="icon" /> Advisor Dashboard
                           </button>
@@ -853,7 +910,7 @@ console.log(googleResponse.data)
                       >
                         <option value="">Select a role</option>
                         <option value="DEVELOPER">Developer</option>
-                        <option value="SELLER">Seller</option>
+                        <option value="SELLER">Seller/Owner</option>
                         <option value="ADVISOR">Property Advisor</option>
                       </select>
                       <label className="form-label">Reason for Role</label>

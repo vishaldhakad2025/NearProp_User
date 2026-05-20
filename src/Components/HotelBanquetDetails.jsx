@@ -275,23 +275,40 @@ const HotelBanquetDetails = () => {
 
       const allImages = [
         ...(data.images || []),
-        ...(propertyType === 'hotel' ? data.rooms?.flatMap(room => room.images) || [] : []),
+        ...(propertyType === 'hotel' ? data.rooms?.flatMap(room => room.images || []) : []),
+        ...(propertyType === 'banquet-hall' ? (data.events?.flatMap(event => event.images || []) || []) : []),
       ].filter(img => img);
 
       const allVideos = [
         ...(data.videos || []),
-        ...(propertyType === 'hotel' ? data.rooms?.flatMap(room => room.videos) || [] : []),
+        ...(propertyType === 'hotel' ? data.rooms?.flatMap(room => room.videos || []) : []),
       ].filter(video => video);
 
       const amenities = [
         ...new Set(
           propertyType === 'hotel'
-            ? data.rooms?.flatMap(room => [...(room.features || []), ...(room.services || [])]) || []
+            ? data.amenities || []
             : data.amenities || []
         ),
       ];
 
-      const totalBeds = propertyType === 'hotel' ? data.rooms?.reduce((sum, room) => sum + (room.inventoryCount || 0), 0) || 0 : 'N/A';
+      let price = 'N/A';
+      let area = 'N/A';
+      let landAreaPostfix = '';
+
+      if (propertyType === 'hotel') {
+        // Prefer averageRoomPrice if available, else top-level price, else first room price
+        price = data.averageRoomPrice ?? data.price ?? data.rooms?.[0]?.price ?? 'N/A';
+        area = data.rooms?.length ?? 0;
+        landAreaPostfix = 'Rooms';
+      } else { // banquet-hall
+        price = data.pricePerPlate ?? 'N/A';
+        // No direct capacity, using parkingCapacity as fallback if needed, but keeping 'N/A' for now as per original
+        area = data.capacity ?? data.parkingCapacity ?? 'N/A';
+        landAreaPostfix = 'Guests'; // Adjusted to better fit banquet (common is per plate + capacity)
+      }
+
+      const totalBeds = propertyType === 'hotel' ? data.rooms?.reduce((sum, room) => sum + (room.capacity || 0), 0) || 0 : 'N/A';
 
       const propertyData = {
         id: data._id || propertyId,
@@ -299,12 +316,12 @@ const HotelBanquetDetails = () => {
         description: data.description || 'No description available',
         type: propertyType === 'hotel' ? 'Hotel' : 'Banquet Hall',
         status: data.isAvailable ? 'AVAILABLE' : 'UNAVAILABLE',
-        price: propertyType === 'hotel' ? (data.averageRoomPrice || data.rooms?.[0]?.price || 2000) : (data.pricePerEvent || 50000),
-        area: propertyType === 'hotel' ? (data.rooms?.length || 0) : (data.capacity || 0),
-        landAreaPostfix: propertyType === 'hotel' ? 'Rooms' : 'Capacity',
+        price: price,
+        area: area,
+        landAreaPostfix: landAreaPostfix,
         bedrooms: totalBeds,
         bathrooms: data.bathrooms || 'N/A',
-        garages: data.parking || 'N/A',
+        garages: data.parking || data.parkingCapacity || 'N/A',
         garageSize: data.parkingSize || 'N/A',
         address: `${data.city || 'Unknown City'}, ${data.state || 'Unknown State'}, ${data.pincode || 'N/A'}`,
         city: data.city || 'Indore',
@@ -313,10 +330,10 @@ const HotelBanquetDetails = () => {
         zipCode: data.pincode || '452010',
         country: 'India',
         owner: {
-          name: data.landlord?.name || data.userId || 'Unknown Agent',
+          name: data.landlord?.name || data.userId?.name || 'Unknown Agent',
           phone: data.landlord?.contactNumber || data.contactNumber || '1234567890',
           whatsapp: data.landlord?.contactNumber || data.contactNumber || '1234567890',
-          avatar: data.landlord?.profilePhoto || '/placeholder.jpg',
+          avatar: data.landlord?.profilePhoto || data.userId?.profileImage || '/placeholder.jpg',
           role: 'Agent',
         },
         createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-IN') : 'N/A',
@@ -342,12 +359,12 @@ const HotelBanquetDetails = () => {
         active: data.isAvailable,
         subscriptionExpiry: data.subscriptions?.[0]?.endDate || new Date().toISOString(),
         rooms: propertyType === 'hotel' ? (data.rooms || []) : [],
-        gst: data.gst || 'N/A',
+        gst: data.gst || data.gstNumber || 'N/A',
         businessLicense: data.businessLicense || 'N/A',
-        capacity: propertyType === 'banquet-hall' ? data.capacity : 'N/A',
-        eventTypes: propertyType === 'banquet-hall' ? data.eventTypes || [] : [],
+        capacity: propertyType === 'banquet-hall' ? (data.capacity || data.parkingCapacity || 'N/A') : 'N/A',
+        eventTypes: propertyType === 'banquet-hall' ? data.events?.map(e => e.eventType) || [] : [],
         cateringOptions: propertyType === 'banquet-hall' ? data.cateringOptions || [] : [],
-        pricePerEvent: propertyType === 'banquet-hall' ? data.pricePerEvent : 'N/A',
+        pricePerEvent: propertyType === 'banquet-hall' ? data.pricePerPlate : 'N/A', // Using pricePerPlate as per response
         seasonalPrice: data.seasonalPrice || {},
         subscriptionPlan: data.subscriptions?.[0]?.planId?.name || 'N/A',
         subscriptionStartDate: data.subscriptions?.[0]?.startDate || 'N/A',
@@ -359,8 +376,8 @@ const HotelBanquetDetails = () => {
       setMainImage(allImages[0] || PLACEHOLDER_IMAGE);
       try {
         setReviews(data.reviews?.items || data.reviews || []);
-        setAverageRating(data.averageRating?.toFixed(1) || data.rating?.averageRating?.toFixed(1) || '0.0');
-        setReviewCount(data.reviewCount || data.rating?.totalReviews || 0);
+        setAverageRating(data.rating?.averageRating?.toFixed(1) || data.averageRating?.toFixed(1) || '0.0');
+        setReviewCount(data.rating?.totalReviews || data.reviewCount || 0);
       } catch (err) {
         console.error('Error processing reviews:', err.message);
         setReviewsError('Failed to load reviews.');
@@ -459,13 +476,13 @@ const HotelBanquetDetails = () => {
     const shareText = `
 🏠 *${property?.title}*
 📍 Location: ${property?.address}
-💰 Price: ₹${typeof property?.price === 'number' ? property.price.toLocaleString() : property?.price}/${propertyType === 'hotel' ? 'night' : 'event'}
+💰 Price: ₹${typeof property?.price === 'number' || typeof property?.price === 'string' ? property.price.toLocaleString?.() || property.price : property?.price}/${propertyType === 'hotel' ? 'night' : 'plate/event'}
 🛏️ ${propertyType === 'hotel' ? 'Rooms' : 'Capacity'}: ${property?.area}
 🏠 Type: ${property?.type}
 👤 Owner: ${property?.owner.name}
 🔗 View more: ${window.location.origin}/HotelAndBanquetDetails/${urlType}/${propertyId}
     `.trim();
-    const shareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + '\n' + property.imageUrls[0])}`;
+    const shareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + '\n' + (property.imageUrls[0] || ''))}`;
     window.open(shareUrl, '_blank');
   };
 
@@ -475,7 +492,10 @@ const HotelBanquetDetails = () => {
   };
 
   const openGoogleMap = () => {
-    if (property?.latitude && property?.longitude) {
+    if (property?.address) {
+      const googleMapsUrl = `https://www.google.com/maps?q=${encodeURIComponent(property.address)}`;
+      window.open(googleMapsUrl, '_blank');
+    } else if (property?.latitude && property?.longitude) {
       const googleMapsUrl = `https://www.google.com/maps?q=${property.latitude},${property.longitude}`;
       window.open(googleMapsUrl, '_blank');
     } else {
@@ -525,8 +545,7 @@ const HotelBanquetDetails = () => {
 
   if (loading) {
     return (
-      <div className="spinner text-center">
-        <div className="spinner-icon"></div>
+      <div className="">
         <p>Loading property details...</p>
       </div>
     );
@@ -577,7 +596,7 @@ const HotelBanquetDetails = () => {
             </div>
           </div>
           <div className="property-price">
-            <span className="price">₹{property?.price?.toLocaleString() || 'N/A'}/{propertyType === 'hotel' ? 'night' : 'event'}</span>
+            <span className="price">₹{property?.price?.toLocaleString?.() || property?.price || 'N/A'} {propertyType === 'banquet-hall' ? '/plate' : '/night'}</span>
           </div>
         </div>
 
@@ -636,7 +655,7 @@ const HotelBanquetDetails = () => {
                 ))}
               </div>
               <div className="neartime-price-box">
-                ₹{property?.price?.toLocaleString() || 'N/A'}/{propertyType === 'hotel' ? 'night' : 'event'}
+                ₹{property?.price?.toLocaleString?.() || property?.price || 'N/A'} {propertyType === 'banquet-hall' ? '/plate' : '/night'}
                 <br />
                 <span className="neartime-price-per">
                   {property?.area || 'N/A'} {property?.landAreaPostfix || ''}
@@ -657,10 +676,6 @@ const HotelBanquetDetails = () => {
                   icon={faLocationDot}
                   className={`landing-overlay-icons-i ${viewMode === 'location' ? 'active' : ''}`}
                   onClick={() => setViewMode('location')}
-                />
-                <FontAwesomeIcon
-                  icon={faHeart}
-                  className="landing-overlay-icons-i"
                 />
                 <FontAwesomeIcon
                   icon={faShare}
@@ -694,7 +709,7 @@ const HotelBanquetDetails = () => {
                   <FontAwesomeIcon icon={faLocationDot} />
                   <span>{property?.address || 'Unknown Address'}</span>
                 </div>
-                <div className="docker-price">₹{property?.price?.toLocaleString() || 'N/A'}/{propertyType === 'hotel' ? 'night' : 'event'}</div>
+                <div className="docker-price">₹{property?.price?.toLocaleString?.() || property?.price || 'N/A'} {propertyType === 'banquet-hall' ? '/plate' : '/night'}</div>
                 <div className="docker-per">{property?.area || 'N/A'} {property?.landAreaPostfix || ''}</div>
                 <div className="docker-divider"></div>
                 <div className="docker-section-head">
@@ -742,16 +757,6 @@ const HotelBanquetDetails = () => {
                   <span><FontAwesomeIcon icon={faBuilding} /> {property?.type || 'N/A'}</span>
                   <small>Property Type</small>
                 </div>
-                {propertyType === 'hotel' && (
-                  <div className="overview-item">
-                    <span><FontAwesomeIcon icon={faBed} /> {property?.bedrooms || 'N/A'}</span>
-                    <small>Beds</small>
-                  </div>
-                )}
-                <div className="overview-item">
-                  <span><FontAwesomeIcon icon={faRulerCombined} /> {property?.area || 'N/A'} {propertyType === 'hotel' ? 'Rooms' : 'Capacity'}</span>
-                  <small>{propertyType === 'hotel' ? 'Total Rooms' : 'Capacity'}</small>
-                </div>
                 <div className="overview-item">
                   <span><FontAwesomeIcon icon={faCalendarDays} /> {property?.createdAt || 'N/A'}</span>
                   <small>Listed On</small>
@@ -766,8 +771,8 @@ const HotelBanquetDetails = () => {
                   <div className="rooms-grid">
                     {property.rooms.map((room, index) => (
                       <div key={room._id || index} className="room-item">
-                        <h3>Room {room.roomNumber} ({room.type})</h3>
-                        <p><strong>Price:</strong> ₹{room.price?.toLocaleString() || 'N/A'}/night</p>
+                        <h3>Room {room.roomNumber || room.roomType} ({room.roomType})</h3>
+                        <p><strong>Price:</strong> ₹{room.price?.toLocaleString() || 'N/A'}</p>
                         <p><strong>Seasonal Price:</strong> Summer: ₹{room.seasonalPrice?.summer?.toLocaleString() || 'N/A'}, Winter: ₹{room.seasonalPrice?.winter?.toLocaleString() || 'N/A'}</p>
                         <p><strong>Availability:</strong> {room.isAvailable ? 'Available' : 'Unavailable'}</p>
                         <p><strong>Features:</strong> {room.features?.join(', ') || 'None'}</p>
@@ -778,7 +783,7 @@ const HotelBanquetDetails = () => {
                               <img
                                 key={imgIndex}
                                 src={img}
-                                alt={`Room ${room.roomNumber} Image ${imgIndex + 1}`}
+                                alt={`Room Image ${imgIndex + 1}`}
                                 className="room-image"
                                 onError={(e) => { e.target.src = PLACEHOLDER_IMAGE; }}
                               />
@@ -795,10 +800,10 @@ const HotelBanquetDetails = () => {
             ) : (
               <div className="banquet-details-section">
                 <h2>Banquet Hall Details</h2>
+                <p><strong>Price Per Plate:</strong> ₹{property?.price?.toLocaleString() || property?.price || 'N/A'}</p>
                 <p><strong>Capacity:</strong> {property?.capacity || 'N/A'}</p>
                 <p><strong>Event Types:</strong> {property?.eventTypes?.join(', ') || 'N/A'}</p>
                 <p><strong>Catering Options:</strong> {property?.cateringOptions?.join(', ') || 'N/A'}</p>
-                <p><strong>Price Per Event:</strong> ₹{property?.pricePerEvent?.toLocaleString() || 'N/A'}</p>
                 <p><strong>Seasonal Price:</strong> Summer: ₹{property?.seasonalPrice?.summer?.toLocaleString() || 'N/A'}, Winter: ₹{property?.seasonalPrice?.winter?.toLocaleString() || 'N/A'}</p>
               </div>
             )}
@@ -809,29 +814,42 @@ const HotelBanquetDetails = () => {
             </div>
 
             <div className="ad-section">
-              <h2>Advertisements</h2>
-              {adsLoading && (
-                <div className="spinner text-center">
-                  <div className="spinner-icon"></div>
-                  <p>Loading advertisements...</p>
-                </div>
-              )}
+              <span className="ads">Sponsored</span>
+
+              {adsLoading && <div className=""><div className="" /></div>}
               {adsError && <p className="error-text">{adsError}</p>}
-              {!adsLoading && !adsError && advertisements.length === 0 && (
-                <p>No advertisements available for {property?.districtName || 'this district'}.</p>
-              )}
+
               {!adsLoading && !adsError && advertisements.length > 0 && (
-                <div key={advertisements[currentAdIndex].id} className="ad-container">
-                  <img
-                    src={advertisements[currentAdIndex].bannerImageUrl}
-                    alt={advertisements[currentAdIndex].title}
-                    className="ad-image"
-                    onError={(e) => { e.target.src = PLACEHOLDER_IMAGE; }}
-                  />
-                  <div className="ad-content">
-                    <h3 className="ad-title">{advertisements[currentAdIndex].title}</h3>
-                    <p className="ad-description">{advertisements[currentAdIndex].description}</p>
-                    <div className="ad-contact-icons">
+                <div className="ad-layout">
+                  <div className="ad-image-section">
+                    <img
+                      src={advertisements[currentAdIndex].bannerImageUrl || Apartment}
+                      alt={advertisements[currentAdIndex].title}
+                      className="ad-image"
+                    />
+                  </div>
+
+                  <div className="ad-content-section">
+                    <div>
+                      <h2 className="ad-title">
+                        {advertisements[currentAdIndex].title}
+                      </h2>
+
+                      <div className="ad-location">
+                        📍 {advertisements[currentAdIndex].districtName}
+                      </div>
+
+                      <p className="ad-description">
+                        {advertisements[currentAdIndex].description}
+                      </p>
+
+                      <div className="ad-validity">
+                        ⏳ Valid till:{" "}
+                        {new Date(advertisements[currentAdIndex].validUntil).toLocaleDateString()}
+                      </div>
+                    </div>
+
+                    <div className="ad-social-icons">
                       {advertisements[currentAdIndex].phoneNumber && (
                         <a href={`tel:${advertisements[currentAdIndex].phoneNumber}`} title="Call">
                           <FontAwesomeIcon icon={faPhone} />
@@ -842,44 +860,8 @@ const HotelBanquetDetails = () => {
                           <FontAwesomeIcon icon={faEnvelope} />
                         </a>
                       )}
-                      {advertisements[currentAdIndex].facebookUrl && (
-                        <a href={advertisements[currentAdIndex].facebookUrl} target="_blank" rel="noopener noreferrer" title="Facebook">
-                          <FontAwesomeIcon icon={faFacebookF} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].twitterUrl && (
-                        <a href={advertisements[currentAdIndex].twitterUrl} target="_blank" rel="noopener noreferrer" title="Twitter">
-                          <FontAwesomeIcon icon={faTwitter} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].instagramUrl && (
-                        <a href={advertisements[currentAdIndex].instagramUrl} target="_blank" rel="noopener noreferrer" title="Instagram">
-                          <FontAwesomeIcon icon={faInstagram} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].linkedinUrl && (
-                        <a href={advertisements[currentAdIndex].linkedinUrl} target="_blank" rel="noopener noreferrer" title="LinkedIn">
-                          <FontAwesomeIcon icon={faLinkedinIn} />
-                        </a>
-                      )}
                     </div>
                   </div>
-                </div>
-              )}
-              {advertisements.length > 1 && (
-                <div className="ad-nav">
-                  <button
-                    onClick={() => setCurrentAdIndex((prev) => (prev - 1 + advertisements.length) % advertisements.length)}
-                    className="ad-nav-btn"
-                  >
-                    &lt;
-                  </button>
-                  <button
-                    onClick={() => setCurrentAdIndex((prev) => (prev + 1) % advertisements.length)}
-                    className="ad-nav-btn"
-                  >
-                    &gt;
-                  </button>
                 </div>
               )}
             </div>
@@ -902,7 +884,7 @@ const HotelBanquetDetails = () => {
               <h2>Details <span className="update-time">Updated on {property?.createdAt || 'N/A'}</span></h2>
               <div className="details-grid">
                 <div><strong>Property ID:</strong> <span className="property-id">{property?.permanentId || 'UNKNOWN'}</span></div>
-                <div><strong>Price:</strong> ₹{property?.price?.toLocaleString() || 'N/A'}/{propertyType === 'hotel' ? 'night' : 'event'}</div>
+                <div><strong>Price:</strong> ₹{property?.price?.toLocaleString?.() || property?.price || 'N/A'} {propertyType === 'banquet-hall' ? '/plate' : '/night'}</div>
                 <div><strong>{propertyType === 'hotel' ? 'Rooms' : 'Capacity'}:</strong> {property?.area || 'N/A'}</div>
                 <div><strong>Property Type:</strong> {property?.type || 'N/A'}</div>
                 <div><strong>Property Status:</strong> {getStatus()}</div>
@@ -913,14 +895,14 @@ const HotelBanquetDetails = () => {
 
             <div className="features-section">
               <h2>Amenities</h2>
-            <div className="features-list">
-  {property?.amenities?.map((feature, index) => (
-    <div key={index} className="feature-item">
-      <input type="checkbox" checked readOnly />
-      <span>{feature}</span>
-    </div>
-  )) || <p>No amenities available.</p>}
-</div>
+              <div className="features-list">
+                {property?.amenities?.map((feature, index) => (
+                  <div key={index} className="feature-item">
+                    <input type="checkbox" checked readOnly />
+                    <span>{feature}</span>
+                  </div>
+                )) || <p>No amenities available.</p>}
+              </div>
             </div>
 
             <div className="gallery-section">

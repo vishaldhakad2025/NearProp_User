@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import Select from "react-select";
 import {
   FaEnvelope,
   FaPhoneAlt,
@@ -24,7 +24,6 @@ const API_CONFIG = {
   apiPrefix: "api",
 };
 
-// Updated agentsData with 5 agents
 const agentsData = [
   {
     id: 1,
@@ -130,11 +129,45 @@ const getToken = () => {
   }
 };
 
+// Custom styles for react-select
+const customSelectStyles = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: '42px',
+    borderColor: state.isFocused ? '#0072ff' : '#ddd',
+    borderWidth: '2px',
+    borderRadius: '8px',
+    boxShadow: state.isFocused ? '0 0 0 3px rgba(0, 114, 255, 0.1)' : 'none',
+    '&:hover': {
+      borderColor: '#0072ff',
+    },
+  }),
+  placeholder: (base) => ({
+    ...base,
+    color: '#999',
+  }),
+  menu: (base) => ({
+    ...base,
+    borderRadius: '8px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+    zIndex: 100,
+  }),
+  option: (base, state) => ({
+    ...base,
+    backgroundColor: state.isSelected ? '#0072ff' : state.isFocused ? '#e3f2fd' : 'white',
+    color: state.isSelected ? 'white' : '#333',
+    cursor: 'pointer',
+    '&:active': {
+      backgroundColor: '#0072ff',
+    },
+  }),
+};
+
 function Agentlist() {
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [activeTab, setActiveTab] = useState("about");
-  const [selectedState, setSelectedState] = useState("");
-  const [selectedDistrict, setSelectedDistrict] = useState("");
+  const [selectedState, setSelectedState] = useState(null);
+  const [selectedDistrict, setSelectedDistrict] = useState(null);
   const [states, setStates] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [filteredDistricts, setFilteredDistricts] = useState([]);
@@ -147,7 +180,6 @@ function Agentlist() {
   const [showNumberOptions, setShowNumberOptions] = useState(false);
   const [optionType, setOptionType] = useState("");
 
-  // Slider settings for mobile view
   const sliderSettings = {
     dots: true,
     infinite: true,
@@ -187,32 +219,42 @@ function Agentlist() {
 
   useEffect(() => {
     if (selectedState) {
-      const filtered = districts.filter((district) => district.state === selectedState);
+      const filtered = districts.filter((district) => district.state === selectedState.value);
       setFilteredDistricts(filtered);
-      setSelectedDistrict("");
+      setSelectedDistrict(null);
     } else {
       setFilteredDistricts([]);
-      setSelectedDistrict("");
+      setSelectedDistrict(null);
     }
   }, [selectedState, districts]);
 
-  // Filter agents and adjust displayed district based on selectedDistrict
+  // Convert states to react-select format
+  const stateOptions = states.map((state) => ({ value: state, label: state }));
+
+  // Convert districts to react-select format
+  const districtOptions = filteredDistricts.map((district) => ({
+    value: district.name,
+    label: district.name,
+  }));
+
+  // Filter agents
   const filteredAgents = agentsData.map((agent) => {
     const agentDistricts = agent.district.split(", ").map((d) => d.trim());
     return {
       ...agent,
       displayDistrict: selectedDistrict
-        ? agentDistricts.includes(selectedDistrict)
-          ? selectedDistrict
+        ? agentDistricts.includes(selectedDistrict.value)
+          ? selectedDistrict.value
           : agent.district
         : agent.district,
     };
   }).filter((agent) => {
     const agentDistricts = agent.district.split(", ").map((d) => d.trim());
-    return (
-      (selectedState ? agent.state === selectedState : true) &&
-      (selectedDistrict ? agentDistricts.includes(selectedDistrict) : true)
-    );
+    
+    const stateMatch = selectedState ? agent.state === selectedState.value : true;
+    const districtMatch = selectedDistrict ? agentDistricts.includes(selectedDistrict.value) : true;
+    
+    return stateMatch && districtMatch;
   });
 
   const handleTicketChange = (e) => {
@@ -250,47 +292,54 @@ function Agentlist() {
       <section className="hrtc-agents-section">
         <h2 className="hrtc-section-title">Meet Our District Managers</h2>
         <p className="hrtc-section-subtitle">
-          {/* Filter managers by <b>State</b> & <b>District</b> */}
+          Filter managers by <b>State</b> & <b>District</b>
         </p>
 
-        {/* Search Bar */}
-        {/* <div className="agentlist-searchbar">
+        {/* Search Bar with Searchable Dropdowns */}
+        <div className="agentlist-searchbar">
           {isLoading && <div className="text-blue-600 text-sm mb-2">Loading states and districts...</div>}
-          <select
-            className="search-select"
-            value={selectedState}
-            onChange={(e) => {
-              setSelectedState(e.target.value);
-              setSelectedDistrict("");
-            }}
-            disabled={isLoading}
-          >
-            <option value="">Select State</option>
-            {states.map((state) => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
-          </select>
-          <select
-            className="search-select"
-            value={selectedDistrict}
-            onChange={(e) => setSelectedDistrict(e.target.value)}
-            disabled={!selectedState || isLoading}
-          >
-            <option value="">Select District</option>
-            {filteredDistricts.map((district) => (
-              <option key={district.id} value={district.name}>
-                {district.name}
-              </option>
-            ))}
-          </select>
+          
+          {/* State Searchable Dropdown */}
+          <div className="select-wrapper">
+            <Select
+              options={stateOptions}
+              value={selectedState}
+              onChange={(option) => {
+                setSelectedState(option);
+                setSelectedDistrict(null);
+              }}
+              placeholder="Select State"
+              isClearable
+              isSearchable
+              isDisabled={isLoading}
+              styles={customSelectStyles}
+              className="react-select-container"
+              classNamePrefix="react-select"
+            />
+          </div>
+
+          {/* District Searchable Dropdown */}
+          <div className="select-wrapper">
+            <Select
+              options={districtOptions}
+              value={selectedDistrict}
+              onChange={(option) => setSelectedDistrict(option)}
+              placeholder="Select District"
+              isClearable
+              isSearchable
+              isDisabled={!selectedState || isLoading}
+              styles={customSelectStyles}
+              className="react-select-container"
+              classNamePrefix="react-select"
+            />
+          </div>
+
           <button className="my-search-btn" disabled={isLoading}>
             Search
           </button>
-        </div> */}
+        </div>
 
-        {/* Desktop / Tablet layout (all cards in a grid) */}
+        {/* Desktop / Tablet layout */}
         <div className="agentlist-cards desktop-view">
           {filteredAgents.length > 0 ? (
             filteredAgents.map((agent) => (
@@ -318,26 +367,30 @@ function Agentlist() {
 
         {/* Mobile slider */}
         <div className="mobile-slider">
-          <Slider {...sliderSettings}>
-            {filteredAgents.map((agent) => (
-              <div key={agent.id} className="hrtc-agent-card">
-                <img src={agent.img} alt={agent.name} className="hrtc-agent-img" />
-                <h3 className="hrtc-agent-name">{agent.name}</h3>
-                <p className="hrtc-agent-role">{agent.role}</p>
-                <p className="hrtc-agent-desc">{agent.description}</p>
-                <p className="hrtc-agent-district">District: {agent.displayDistrict}</p>
-                <button
-                  className="hrtc-view-profile"
-                  onClick={() => {
-                    setSelectedAgent({ ...agent, displayDistrict: agent.displayDistrict });
-                    setActiveTab("about");
-                  }}
-                >
-                  View Profile
-                </button>
-              </div>
-            ))}
-          </Slider>
+          {filteredAgents.length > 0 ? (
+            <Slider {...sliderSettings}>
+              {filteredAgents.map((agent) => (
+                <div key={agent.id} className="hrtc-agent-card">
+                  <img src={agent.img} alt={agent.name} className="hrtc-agent-img" />
+                  <h3 className="hrtc-agent-name">{agent.name}</h3>
+                  <p className="hrtc-agent-role">{agent.role}</p>
+                  <p className="hrtc-agent-desc">{agent.description}</p>
+                  <p className="hrtc-agent-district">District: {agent.displayDistrict}</p>
+                  <button
+                    className="hrtc-view-profile"
+                    onClick={() => {
+                      setSelectedAgent({ ...agent, displayDistrict: agent.displayDistrict });
+                      setActiveTab("about");
+                    }}
+                  >
+                    View Profile
+                  </button>
+                </div>
+              ))}
+            </Slider>
+          ) : (
+            <p className="no-results">No managers found for the selected filters.</p>
+          )}
         </div>
       </section>
 
@@ -369,13 +422,18 @@ function Agentlist() {
               </div>
             </div>
             <div className="modal-actions">
-              <a href={`mailto:${selectedAgent.email}`} className="action-btn email-btn">
+              {/* href={`mailto:${selectedAgent.email}`} */}
+              <p  className="action-btn email-btn">
                 <FaEnvelope /> Email
-              </a>
-              <button className="action-btn call-btn" onClick={() => { setOptionType("call"); setShowNumberOptions(true); }}>
+              </p>
+              <button className="action-btn call-btn"
+              //  onClick={() => { setOptionType("call"); setShowNumberOptions(true); }}
+               >
                 <FaPhoneAlt /> Call
               </button>
-              <button className="action-btn whatsapp-btn" onClick={() => { setOptionType("whatsapp"); setShowNumberOptions(true); }}>
+              <button className="action-btn whatsapp-btn" 
+              // onClick={() => { setOptionType("whatsapp"); setShowNumberOptions(true); }}
+              >
                 <FaWhatsapp /> WhatsApp
               </button>
             </div>

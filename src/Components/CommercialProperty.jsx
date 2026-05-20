@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -103,6 +103,93 @@ const formatPropertyType = (type) => {
     officespace: "Office Space",
   };
   return typeMap[type?.toLowerCase()] || type || "Unknown";
+};
+
+// Searchable Dropdown Component (added for State & City)
+const SearchableDropdown = ({ options, value, onChange, placeholder, disabled = false }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  const filteredOptions = options.filter(option =>
+    option.label.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const selectedLabel = options.find(opt => opt.value === value)?.label || '';
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
+      <input
+        type="text"
+        value={isOpen ? searchTerm : selectedLabel}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        onFocus={() => setIsOpen(true)}
+        onClick={() => setIsOpen(true)}
+        placeholder={selectedLabel || placeholder}
+        disabled={disabled}
+        style={{
+          width: '100%',
+          padding: '10px',
+          border: '1px solid #e2e8f0',
+          borderRadius: '6px',
+          fontSize: '0.875rem',
+          color: '#1a202c',
+        }}
+        readOnly={false}
+      />
+      {isOpen && (
+        <div style={{
+          position: 'absolute',
+          zIndex: 50,
+          marginTop: '4px',
+          width: '100%',
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '6px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+          maxHeight: '200px',
+          overflow: 'auto',
+        }}>
+          {filteredOptions.length === 0 ? (
+            <div style={{ padding: '8px', color: '#718096', fontSize: '0.875rem' }}>
+              No options found
+            </div>
+          ) : (
+            filteredOptions.map((option) => (
+              <div
+                key={option.value}
+                onClick={() => {
+                  onChange({ target: { value: option.value } });
+                  setSearchTerm('');
+                  setIsOpen(false);
+                }}
+                style={{
+                  padding: '8px',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  borderBottom: '1px solid #e2e8f0',
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#ebf8ff'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#ffffff'}
+              >
+                {option.label}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
 function CommercialProperty() {
@@ -531,21 +618,15 @@ function CommercialProperty() {
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#4a5568', marginBottom: '8px' }}>
                   State
                 </label>
-                <select
+                <SearchableDropdown
+                  options={states.map(s => ({ value: s, label: s }))}
                   value={selectedState}
                   onChange={(e) => setSelectedState(e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.875rem', color: '#1a202c' }}
-                >
-                  <option value="">All States</option>
-                  {states.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="All States"
+                />
               </div>
 
-              <div style={{ marginBottom: '20px' }}>
+              {/* <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#4a5568', marginBottom: '8px' }}>
                   District
                 </label>
@@ -561,24 +642,18 @@ function CommercialProperty() {
                     </option>
                   ))}
                 </select>
-              </div>
+              </div> */}
 
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#4a5568', marginBottom: '8px' }}>
                   City
                 </label>
-                <select
+                <SearchableDropdown
+                  options={cities.map(c => ({ value: c, label: c }))}
                   value={selectedCity}
                   onChange={(e) => setSelectedCity(e.target.value)}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.875rem', color: '#1a202c' }}
-                >
-                  <option value="">All Cities</option>
-                  {cities.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="All Cities"
+                />
               </div>
 
               <div style={{ marginBottom: '20px' }}>

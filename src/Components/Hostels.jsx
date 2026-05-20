@@ -546,8 +546,6 @@
 
 // export default Hostels;
 
-
-
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -607,7 +605,30 @@ function Hostels() {
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
 
+  // Searchable dropdown states
+  const [stateSearch, setStateSearch] = useState("");
+  const [citySearch, setCitySearch] = useState("");
+  const [showStateDropdown, setShowStateDropdown] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+
   const { pgHostelBaseUrl, apiPrefix } = API_CONFIG;
+
+  // ✅ Track property view
+  const trackPropertyView = async (propertyId) => {
+    try {
+      const url = `${pgHostelBaseUrl}/${apiPrefix}/landlord/property/view/${propertyId}`;
+      await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      // API call is fire-and-forget, no need to handle response
+    } catch (err) {
+      // Silently fail - don't interrupt user experience
+      console.error('Failed to track property view:', err);
+    }
+  };
 
   // ✅ Fetch Hostel properties
   useEffect(() => {
@@ -620,7 +641,7 @@ function Hostels() {
 
         const data = JSON.parse(text);
         const hostelProperties = (data.properties || [])
-          .filter(pg => pg.type?.toLowerCase() === "hostel" || pg.type?.toLowerCase() === "pg") // agar PG bhi dikhana hai to
+          .filter(pg => pg.type?.toLowerCase() === "hostel" || pg.type?.toLowerCase() === "pg")
           .map(pg => ({
             id: pg.id || pg.propertyId,
             title: pg.name || "Untitled Hostel",
@@ -638,7 +659,7 @@ function Hostels() {
             owner: { name: pg.landlordInfo?.name || "Unknown" },
             createdAt: pg.createdAt || new Date().toISOString(),
             state: pg.location?.state || "",
-            district: pg.location?.district || "", // agar backend mein district hai
+            district: pg.location?.district || "",
             city: pg.location?.city || "",
           }));
 
@@ -706,6 +727,15 @@ function Hostels() {
     setSelectedCity("");
   }, [selectedState]);
 
+  // Filter states and cities based on search
+  const filteredStates = states.filter(s =>
+    s.toLowerCase().includes(stateSearch.toLowerCase())
+  );
+
+  const filteredCities = cities.filter(c =>
+    c.toLowerCase().includes(citySearch.toLowerCase())
+  );
+
   if (loading) return <div className="p-4">Loading hostels…</div>;
   if (error) return <div className="p-4 text-danger">Error: {error}</div>;
 
@@ -726,6 +756,7 @@ function Hostels() {
               to={`/Pgandhostel/${property.id}`}
               key={property.id}
               className="property-card-link"
+              onClick={() => trackPropertyView(property.id)}
             >
               <div
                 className="landing-property-card"
@@ -936,21 +967,48 @@ function Hostels() {
             <div className="residential-filter">
               <h3 className="filter-title">Filter Hostels</h3>
 
-              {/* 🔹 Location Filters */}
-              <div className="filter-group">
+              {/* 🔹 State - Searchable Dropdown */}
+              <div className="filter-group position-relative">
                 <label className="filter-label">State</label>
-                <select
-                  value={selectedState}
-                  onChange={(e) => setSelectedState(e.target.value)}
-                  className="filter-select"
+                <div
+                  className="filter-input d-flex align-items-center justify-content-between cursor-pointer"
+                  onClick={() => setShowStateDropdown(!showStateDropdown)}
                 >
-                  <option value="">All States</option>
-                  {states.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                  <span>{selectedState || "Please select"}</span>
+                  <span>▼</span>
+                </div>
+                {showStateDropdown && (
+                  <div className="position-absolute w-100 bg-white border rounded shadow mt-1" style={{ zIndex: 1000, maxHeight: "300px", overflowY: "auto" }}>
+                    <input
+                      type="text"
+                      placeholder="Search state..."
+                      value={stateSearch}
+                      onChange={(e) => setStateSearch(e.target.value)}
+                      className="filter-input border-0 border-bottom"
+                      autoFocus
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div>
+                      {filteredStates.length === 0 ? (
+                        <div className="p-2 text-muted">No states found</div>
+                      ) : (
+                        filteredStates.map((s) => (
+                          <div
+                            key={s}
+                            className="p-2 hover-bg-light cursor-pointer"
+                            onClick={() => {
+                              setSelectedState(s);
+                              setShowStateDropdown(false);
+                              setStateSearch("");
+                            }}
+                          >
+                            {s}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* District filter - sirf tab dikhao jab districts available ho */}
@@ -961,7 +1019,7 @@ function Hostels() {
                     value={selectedDistrict}
                     onChange={(e) => setSelectedDistrict(e.target.value)}
                     className="filter-select"
-                    disabled={!selectedState} // optional: state select karne ke baad enable
+                    disabled={!selectedState}
                   >
                     <option value="">All Districts</option>
                     {districts
@@ -975,20 +1033,48 @@ function Hostels() {
                 </div>
               )}
 
-              <div className="filter-group">
+              {/* 🔹 City - Searchable Dropdown */}
+              <div className="filter-group position-relative">
                 <label className="filter-label">City</label>
-                <select
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
-                  className="filter-select"
+                <div
+                  className="filter-input d-flex align-items-center justify-content-between cursor-pointer"
+                  onClick={() => setShowCityDropdown(!showCityDropdown)}
                 >
-                  <option value="">All Cities</option>
-                  {cities.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                  <span>{selectedCity || "Please select"}</span>
+                  <span>▼</span>
+                </div>
+                {showCityDropdown && (
+                  <div className="position-absolute w-100 bg-white border rounded shadow mt-1" style={{ zIndex: 1000, maxHeight: "300px", overflowY: "auto" }}>
+                    <input
+                      type="text"
+                      placeholder="Search city..."
+                      value={citySearch}
+                      onChange={(e) => setCitySearch(e.target.value)}
+                      className="filter-input border-0 border-bottom"
+                      autoFocus
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div>
+                      {filteredCities.length === 0 ? (
+                        <div className="p-2 text-muted">No cities found</div>
+                      ) : (
+                        filteredCities.map((c) => (
+                          <div
+                            key={c}
+                            className="p-2 hover-bg-light cursor-pointer"
+                            onClick={() => {
+                              setSelectedCity(c);
+                              setShowCityDropdown(false);
+                              setCitySearch("");
+                            }}
+                          >
+                            {c}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Existing Filters */}
@@ -1047,6 +1133,12 @@ function Hostels() {
           </aside>
         </div>
       </div>
+
+      {/* Additional CSS */}
+      <style jsx>{`
+        .cursor-pointer { cursor: pointer; }
+        .hover-bg-light:hover { background-color: #f8f9fa; }
+      `}</style>
     </div>
   );
 }

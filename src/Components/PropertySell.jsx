@@ -1695,10 +1695,10 @@ ${property?.type?.toLowerCase() !== 'plot' ? `🛏️ Bedrooms: ${property?.bedr
                   className={`landing-overlay-icons-i ${viewMode === 'location' ? 'active' : ''}`}
                   onClick={() => setViewMode('location')}
                 />
-                <FontAwesomeIcon
+                {/* <FontAwesomeIcon
                   icon={faHeart}
                   className="landing-overlay-icons-i"
-                />
+                /> */}
                 <FontAwesomeIcon
                   icon={faShare}
                   className="landing-overlay-icons-i"
@@ -1849,121 +1849,83 @@ ${property?.type?.toLowerCase() !== 'plot' ? `🛏️ Bedrooms: ${property?.bedr
               <p>{property?.description || 'No description available.'}</p>
             </div>
 
-            <div className="ad-section">
-              {adsLoading && (
-                <div className="spinner text-center">
-                  <div className="spinner-icon"></div>
-                </div>
-              )}
-              {adsError && <p className="error-text">{adsError}</p>}
-              {!adsLoading && !adsError && advertisements.length === 0 && (
-                <p>No advertisements available for this district.</p>
-              )}
-              {!adsLoading && !adsError && advertisements.length > 0 && (
-                <div key={advertisements[currentAdIndex].id} className="ad-layout">
-                  <div className="ad-image-section">
-                    <img
-                      src={advertisements[currentAdIndex].bannerImageUrl || Apartment}
-                      alt={advertisements[currentAdIndex].title || 'Advertisement'}
-                      className="ad-image"
-                      onError={(e) => { e.target.src = Apartment; }}
-                    />
-                  </div>
-                  <div className="ad-content-section">
-                    <h2 className="ad-title">{advertisements[currentAdIndex].title || 'Untitled Advertisement'}</h2>
-                    <p className="ad-description">{advertisements[currentAdIndex].description || 'No description available.'}</p>
-                    <div className="ad-social-icons">
-                      {advertisements[currentAdIndex].phoneNumber && (
-                        <a
-                          href={`tel:${advertisements[currentAdIndex].phoneNumber}`}
-                          title="Call"
-                        >
-                          <FontAwesomeIcon icon={faPhone} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].phoneNumber && (
-                        <a
-                          href={`https://wa.me/${advertisements[currentAdIndex].phoneNumber}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="WhatsApp"
-                        >
-                          <FontAwesomeIcon icon={faWhatsapp} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].emailAddress && (
-                        <a
-                          href={`mailto:${advertisements[currentAdIndex].emailAddress}`}
-                          title="Email"
-                        >
-                          <FontAwesomeIcon icon={faEnvelope} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].facebookUrl && (
-                        <a
-                          href={advertisements[currentAdIndex].facebookUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Facebook"
-                        >
-                          <FontAwesomeIcon icon={faFacebookF} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].twitterUrl && (
-                        <a
-                          href={advertisements[currentAdIndex].twitterUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Twitter"
-                        >
-                          <FontAwesomeIcon icon={faTwitter} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].instagramUrl && (
-                        <a
-                          href={advertisements[currentAdIndex].instagramUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Instagram"
-                        >
-                          <FontAwesomeIcon icon={faInstagram} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].linkedinUrl && (
-                        <a
-                          href={advertisements[currentAdIndex].linkedinUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="LinkedIn"
-                        >
-                          <FontAwesomeIcon icon={faLinkedinIn} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].youtubeUrl && (
-                        <a
-                          href={advertisements[currentAdIndex].youtubeUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="YouTube"
-                        >
-                          <FontAwesomeIcon icon={faYoutube} />
-                        </a>
-                      )}
-                      {advertisements[currentAdIndex].websiteUrl && (
-                        <a
-                          href={advertisements[currentAdIndex].websiteUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Website"
-                        >
-                          <FontAwesomeIcon icon={faGlobe} />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+{/* ----------------------------------ads-------------------------------------------- */}
+           <div className="ad-section">
+  <span className="ads">Sponsored</span>
+
+  {adsLoading && <div className="spinner text-center"><div className="spinner-icon" /></div>}
+  {adsError && <p className="error-text">{adsError}</p>}
+
+  {!adsLoading && !adsError && advertisements.length > 0 && (
+    <div className="ad-layout">
+      {/* Image 50% */}
+      <div className="ad-image-section">
+        <img
+          src={advertisements[currentAdIndex].bannerImageUrl || Apartment}
+          alt={advertisements[currentAdIndex].title}
+          className="ad-image"
+        />
+      </div>
+
+      {/* Content 50% */}
+      <div className="ad-content-section">
+        <div>
+          <h2 className="ad-title">
+            {advertisements[currentAdIndex].title}
+          </h2>
+
+          <div className="ad-location">
+            📍 {advertisements[currentAdIndex].districtName}
+          </div>
+
+          <p className="ad-description">
+            {advertisements[currentAdIndex].description}
+          </p>
+
+          <div className="ad-validity">
+            ⏳ Valid till:{" "}
+            {new Date(advertisements[currentAdIndex].validUntil).toLocaleDateString()}
+          </div>
+        </div>
+
+        {/* Contact / Social */}
+        <div className="ad-social-icons">
+          {advertisements[currentAdIndex].phoneNumber && (
+            <a href={`tel:${advertisements[currentAdIndex].phoneNumber}`} title="Call">
+              <FontAwesomeIcon icon={faPhone} />
+            </a>
+          )}
+          {advertisements[currentAdIndex].whatsappNumber && (
+            <a
+              href={`https://wa.me/${advertisements[currentAdIndex].whatsappNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="WhatsApp"
+            >
+              <FontAwesomeIcon icon={faWhatsapp} />
+            </a>
+          )}
+          {advertisements[currentAdIndex].emailAddress && (
+            <a href={`mailto:${advertisements[currentAdIndex].emailAddress}`} title="Email">
+              <FontAwesomeIcon icon={faEnvelope} />
+            </a>
+          )}
+          {advertisements[currentAdIndex].websiteUrl && (
+            <a
+              href={advertisements[currentAdIndex].websiteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Website"
+            >
+              <FontAwesomeIcon icon={faGlobe} />
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  )}
+</div>
+
 
             <div className="address-section">
               <h2>Address</h2>

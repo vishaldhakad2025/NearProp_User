@@ -10,29 +10,26 @@ const AD_API_CONFIG = {
   apiPrefix: 'api/v1',
 };
 
-const FALLBACK_AD = [
-  {
-    id: 1,
-    title: "Luxury Hotel in Ujjain",
-    description: "Experience a luxurious stay with world-class amenities and scenic views",
-    bannerImageUrl: "/hotel.jpg",
-    phoneNumber: "+91 91551 05666",
-    whatsappNumber: "+91 91551 05666",
-    emailAddress: "bookings@ujjainhotel.com",
-    targetLocation: "Ujjain",
-    validUntil: "2025-12-31T23:59:59",
-    createdBy: { name: "Hotel Administrator" },
-  },
-];
+const DEFAULT_AD_IMAGE = '/src/assets/staticad.png';
 
-const DEFAULT_AD_IMAGE = '/assets/default-hotel-ad.png';
+const STATIC_FALLBACK_AD = {
+  title: "Real Estate Opportunities",
+  description: "Looking for exclusive property deals? Contact us for the best real estate investments.",
+  bannerImageUrl: "/src/assets/staticad.png",
+  phoneNumber: "+919155105666",
+  whatsappNumber: "919155105666",
+  emailAddress: "mail.nearprop@gmail.com",
+  websiteUrl: "https://nearprop.com",
+  instagramUrl: "https://instagram.com/nearprop",
+  facebookUrl: "https://facebook.com/nearprop",
+  youtubeUrl: "https://youtube.com/nearprop",
+};
 
 const HotelSidebar = ({ propertyId, propertyTitle, owner, propertydata }) => {
   const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
   const [formError, setFormError] = useState(null);
   const [advertisements, setAdvertisements] = useState([]);
   const [adsLoading, setAdsLoading] = useState(true);
-  const [adsError, setAdsError] = useState(null);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const [isAdHovered, setIsAdHovered] = useState(false);
   const adSectionRef = useRef(null);
@@ -49,11 +46,30 @@ const HotelSidebar = ({ propertyId, propertyTitle, owner, propertydata }) => {
     }
   };
 
+  // Track advertisement clicks
+  const trackAdClick = async (adId, clickType) => {
+    try {
+      const token = getToken()?.token;
+      await axios.post(
+        `${AD_API_CONFIG.baseUrl}/${AD_API_CONFIG.apiPrefix}/advertisements/${adId}/click/${clickType}`,
+        {},
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+      console.log(`Click tracked: ${clickType} for ad ${adId}`);
+    } catch (err) {
+      console.error(`Error tracking ${clickType} click:`, err.message);
+    }
+  };
+
   // Fetch advertisements
   const fetchAdvertisements = async () => {
     try {
       setAdsLoading(true);
-      setAdsError(null);
       const token = getToken()?.token;
       const districtName = (propertydata?.districtName || 'Ujjain').replace(/[^a-zA-Z\s]/g, '');
       const response = await axios.get(
@@ -77,15 +93,13 @@ const HotelSidebar = ({ propertyId, propertyTitle, owner, propertydata }) => {
       const filteredAds = ads.filter(ad => ad.targetLocation?.toLowerCase() === districtName.toLowerCase());
       if (filteredAds.length === 0) {
         console.warn(`No hotel advertisements found for district: ${districtName}`);
-        setAdvertisements(FALLBACK_AD);
-        setAdsError(`No hotel advertisements available for ${districtName}.`);
+        setAdvertisements([STATIC_FALLBACK_AD]);
       } else {
         setAdvertisements(filteredAds);
       }
     } catch (err) {
       console.error('Advertisement fetch error:', err.message);
-      setAdsError(`Failed to load hotel advertisements: ${err.message}`);
-      setAdvertisements(FALLBACK_AD);
+      setAdvertisements([STATIC_FALLBACK_AD]);
     } finally {
       setAdsLoading(false);
     }
@@ -136,11 +150,18 @@ const HotelSidebar = ({ propertyId, propertyTitle, owner, propertydata }) => {
     setFormError(null);
     alert('Message sent successfully!');
   };
+       
+  const handleAdContactClick = (ad, clickType, url) => {
+    if (ad.id) {
+      trackAdClick(ad.id, clickType);
+    }
+    window.open(url, clickType === 'phone' ? '_self' : '_blank');
+  };
 
-  console.log('Sidebar Rendering:', { propertyId, propertyTitle, owner, propertydata });
-
+  console.log("dgvdhbvdjh",owner);
+  
   const normalizedOwner = {
-    name: owner?.name || 'Unknown Agent',
+    name: owner?.name || 'Unknown Agent', 
     phone: owner?.phone || 'N/A',
     whatsapp: owner?.whatsapp || 'N/A',
     avatar: owner?.avatar || propertydata?.imageUrls?.[0] || '/placeholder.jpg',
@@ -152,16 +173,16 @@ const HotelSidebar = ({ propertyId, propertyTitle, owner, propertydata }) => {
         <h2>Quick Info</h2>
         <div className="quick-info-grid">
           <div>
-            <strong>Price:</strong> ₹{propertydata?.price?.toLocaleString() || 'N/A'}/{propertydata?.type === 'Hotel' ? 'night' : 'event'}
+            <strong>Price:</strong> <span>₹{propertydata?.price?.toLocaleString() || 'N/A'}/{propertydata?.type === 'Hotel' ? 'night' : 'event'}</span>
           </div>
           <div>
-            <strong>Type:</strong> {propertydata?.type || 'N/A'}
+            <strong>Type:</strong> <span>{propertydata?.type || 'N/A'}</span>
           </div>
+          {/* <div>
+            <strong>{propertydata?.type === 'Hotel' ? 'Rooms' : 'Capacity'}:</strong> <span>{propertydata?.area || 'N/A'} {propertydata?.landAreaPostfix}</span>
+          </div> */}
           <div>
-            <strong>{propertydata?.type === 'Hotel' ? 'Rooms' : 'Capacity'}:</strong> {propertydata?.area || 'N/A'} {propertydata?.landAreaPostfix}
-          </div>
-          <div>
-            <strong>Status:</strong> {propertydata?.status || 'N/A'}
+            <strong>Status:</strong> <span>{propertydata?.status || 'N/A'}</span>
           </div>
         </div>
       </div>
@@ -172,13 +193,11 @@ const HotelSidebar = ({ propertyId, propertyTitle, owner, propertydata }) => {
           <div className="spinner text-center">
             <div className="spinner-icon"></div>
           </div>
-        ) : adsError ? (
-          <p className="error-text">{adsError}</p>
         ) : advertisements.length > 0 ? (
           <div className="ad-slider">
             <div className="ad-slide" style={{ transform: `translateX(-${currentAdIndex * 100}%)` }}>
-              {advertisements.map((ad) => (
-                <div key={ad.id} className="ad-slide-item">
+              {advertisements.map((ad, index) => (
+                <div key={index} className="ad-slide-item">
                   <h5 className="ad-title">{ad.title || 'Hotel Advertisement'}</h5>
                   <img
                     src={ad.bannerImageUrl || DEFAULT_AD_IMAGE}
@@ -189,81 +208,92 @@ const HotelSidebar = ({ propertyId, propertyTitle, owner, propertydata }) => {
                   <p className="ad-description">{ad.description || 'No description available'}</p>
                   <div className="ad-contact-icons">
                     {ad.phoneNumber && ad.phoneNumber !== 'N/A' && (
-                      <a
-                        href={`tel:${ad.phoneNumber}`}
-                        className="ad-contact-icon call"
+                      <a 
+                        href="#" 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleAdContactClick(ad, 'phone', `tel:${ad.phoneNumber}`);
+                        }}
+                        className="call" 
                         title="Call"
-                        aria-label="Call advertisement contact"
                       >
                         <FontAwesomeIcon icon={faPhone} />
                       </a>
                     )}
                     {ad.emailAddress && ad.emailAddress !== 'N/A' && (
-                      <a
-                        href={`mailto:${ad.emailAddress}?subject=Inquiry about ${ad.title || 'Advertisement'}`}
-                        className="ad-contact-icon mail"
+                      <a 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          window.location.href = `mailto:${ad.emailAddress}?subject=Inquiry about ${ad.title || 'Advertisement'}`;
+                        }}
+                        className="mail" 
                         title="Email"
-                        aria-label="Email advertisement contact"
                       >
                         <FontAwesomeIcon icon={faEnvelope} />
                       </a>
                     )}
                     {ad.whatsappNumber && ad.whatsappNumber !== 'N/A' && (
-                      <a
-                        href={`https://wa.me/${ad.whatsappNumber}?text=Inquiry%20about%20${ad.title || 'Advertisement'}`}
-                        className="ad-contact-icon whatsapp"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <a 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleAdContactClick(ad, 'whatsapp', `https://wa.me/${ad.whatsappNumber}`);
+                        }}
+                        className="whatsapp" 
                         title="WhatsApp"
-                        aria-label="WhatsApp advertisement contact"
                       >
                         <FontAwesomeIcon icon={faWhatsapp} />
                       </a>
                     )}
                     {ad.instagramUrl && (
-                      <a
-                        href={ad.instagramUrl}
-                        className="ad-contact-icon instagram"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <a 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleAdContactClick(ad, 'instagram', ad.instagramUrl);
+                        }}
+                        className="instagram" 
                         title="Instagram"
-                        aria-label="Instagram advertisement contact"
                       >
                         <FontAwesomeIcon icon={faInstagram} />
                       </a>
                     )}
                     {ad.facebookUrl && (
-                      <a
-                        href={ad.facebookUrl}
-                        className="ad-contact-icon facebook"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <a 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleAdContactClick(ad, 'facebook', ad.facebookUrl);
+                        }}
+                        className="facebook" 
                         title="Facebook"
-                        aria-label="Facebook advertisement contact"
                       >
                         <FontAwesomeIcon icon={faFacebookF} />
                       </a>
                     )}
                     {ad.youtubeUrl && (
-                      <a
-                        href={ad.youtubeUrl}
-                        className="ad-contact-icon youtube"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <a 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleAdContactClick(ad, 'youtube', ad.youtubeUrl);
+                        }}
+                        className="youtube" 
                         title="YouTube"
-                        aria-label="YouTube advertisement contact"
                       >
                         <FontAwesomeIcon icon={faYoutube} />
                       </a>
                     )}
                     {ad.websiteUrl && (
-                      <a
-                        href={ad.websiteUrl}
-                        className="ad-contact-icon website"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <a 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleAdContactClick(ad, 'website', ad.websiteUrl);
+                        }}
+                        className="website" 
                         title="Website"
-                        aria-label="Website advertisement contact"
                       >
                         <FontAwesomeIcon icon={faGlobe} />
                       </a>
@@ -274,10 +304,10 @@ const HotelSidebar = ({ propertyId, propertyTitle, owner, propertydata }) => {
             </div>
             {advertisements.length > 1 && (
               <>
-                <button className="ad-nav-button left" onClick={handlePrevAd} aria-label="Previous hotel advertisement">
+                <button className="ad-nav-button left" onClick={handlePrevAd} aria-label="Previous Ad">
                   <FontAwesomeIcon icon={faChevronLeft} />
                 </button>
-                <button className="ad-nav-button right" onClick={handleNextAd} aria-label="Next hotel advertisement">
+                <button className="ad-nav-button right" onClick={handleNextAd} aria-label="Next Ad">
                   <FontAwesomeIcon icon={faChevronRight} />
                 </button>
                 <div className="ad-dots">
@@ -287,7 +317,8 @@ const HotelSidebar = ({ propertyId, propertyTitle, owner, propertydata }) => {
                       className={`ad-dot ${index === currentAdIndex ? 'active' : ''}`}
                       onClick={() => handleDotClick(index)}
                       role="button"
-                      aria-label={`Go to hotel advertisement ${index + 1}`}
+                      tabIndex={0}
+                      aria-label={`Go to ad ${index + 1}`}
                     />
                   ))}
                 </div>
@@ -300,25 +331,20 @@ const HotelSidebar = ({ propertyId, propertyTitle, owner, propertydata }) => {
       </div>
 
       <div className="agent-info">
-        <img src={normalizedOwner.avatar} alt="Agent or Hotel" className="agent-photo" onError={(e) => { e.target.src = '/placeholder.jpg'; }} />
+        <img 
+          src='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRFCzxivJXCZk0Kk8HsHujTO3Olx0ngytPrWw&s' 
+          alt="Agent or Hotel" 
+          className="agent-photo" 
+          onError={(e) => { e.target.src = '/placeholder.jpg'; }} 
+        />
         <div className="agent-details">
-          <div><strong>{normalizedOwner.name}</strong></div>
+          <div><strong>{owner.name.name}</strong></div>
           <div>{owner?.role || 'Agent'}</div>
           <div className="agent-contact">
-            <a
-              href={`tel:${normalizedOwner.phone}`}
-              className="ad-contact-button call"
-              onClick={(e) => normalizedOwner.phone === 'N/A' && e.preventDefault()}
-            >
+            <a href={`tel:${owner.phone}`} className="ad-contact-button call">
               <FontAwesomeIcon icon={faPhone} className="me-1" /> Call
             </a>
-            <a
-              href={`https://wa.me/${normalizedOwner.whatsapp}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ad-contact-button whatsapp"
-              onClick={(e) => normalizedOwner.whatsapp === 'N/A' && e.preventDefault()}
-            >
+            <a href={`https://wa.me/${owner.whatsapp}`} target="_blank" rel="noopener noreferrer" className="ad-contact-button whatsapp">
               <FontAwesomeIcon icon={faWhatsapp} className="me-1" /> WhatsApp
             </a>
           </div>
@@ -327,41 +353,41 @@ const HotelSidebar = ({ propertyId, propertyTitle, owner, propertydata }) => {
 
       <div className="contact-container">
         <h3>Contact Agent</h3>
-        <div className="contact-form">
+        <form className="contact-form" onSubmit={handleContactSubmit}>
           <div className="form-group">
             <label>Name</label>
-            <input
-              type="text"
-              value={contactForm.name}
-              onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-              placeholder="Your Name"
+            <input 
+              type="text" 
+              value={contactForm.name} 
+              onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} 
+              placeholder="Your Name" 
             />
             {formError?.name && <span className="error-text">{formError.name}</span>}
           </div>
           <div className="form-group">
             <label>Email</label>
-            <input
-              type="email"
-              value={contactForm.email}
-              onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-              placeholder="Your Email"
+            <input 
+              type="email" 
+              value={contactForm.email} 
+              onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} 
+              placeholder="Your Email" 
             />
             {formError?.email && <span className="error-text">{formError.email}</span>}
           </div>
           <div className="form-group">
             <label>Message</label>
-            <textarea
-              value={contactForm.message}
-              onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
+            <textarea 
+              value={contactForm.message} 
+              onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })} 
               placeholder="Your Message"
             ></textarea>
             {formError?.message && <span className="error-text">{formError.message}</span>}
           </div>
-          <button type="button" onClick={handleContactSubmit} className="submit-btn">
+          <button type="submit" className="submit-btn">
             Send Message
           </button>
-        </div>
-      </div>
+        </form>
+      </div> 
     </div>
   );
 };

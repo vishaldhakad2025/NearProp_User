@@ -79,6 +79,12 @@ function Properties() {
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
 
+  // Searchable dropdown states
+  const [stateSearch, setStateSearch] = useState("");
+  const [citySearch, setCitySearch] = useState("");
+  const [showStateDropdown, setShowStateDropdown] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+
   const { baseUrl, apiPrefix } = API_CONFIG;
 
   // Extract type from URL query parameter
@@ -327,6 +333,10 @@ function Properties() {
     console.log("Filtered properties:", filtered);
     setFilteredProperties(filtered);
   }, [properties, filterPriceMin, filterPriceMax, filterBedrooms, filterType, filterStatus, selectedState, selectedDistrict, selectedCity, location]);
+
+  // Filter states and cities for search
+  const filteredStates = states.filter(s => s.toLowerCase().includes(stateSearch.toLowerCase()));
+  const filteredCitiesList = filteredCities.filter(c => c.toLowerCase().includes(citySearch.toLowerCase()));
 
   // Do not render properties if not authenticated
   const token = getToken();
@@ -665,54 +675,93 @@ function Properties() {
             <div className="residential-filter">
               <h3 className="filter-title">Filter Properties</h3>
 
-              <div className="filter-group">
+              {/* State - Searchable Dropdown */}
+              <div className="filter-group position-relative">
                 <label className="filter-label">State</label>
-                <select
-                  value={selectedState}
-                  onChange={(e) => setSelectedState(e.target.value)}
-                  className="filter-select"
+                <div
+                  className="filter-select d-flex align-items-center justify-content-between cursor-pointer"
+                  onClick={() => setShowStateDropdown(!showStateDropdown)}
                 >
-                  <option value="">Select State</option>
-                  {states.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                  <span>{selectedState || "Please select"}</span>
+                  <span>▼</span>
+                </div>
+                {showStateDropdown && (
+                  <div className="position-absolute w-100 bg-white border rounded shadow mt-1" style={{ zIndex: 1000, maxHeight: "300px", overflowY: "auto" }}>
+                    <input
+                      type="text"
+                      placeholder="Search state..."
+                      value={stateSearch}
+                      onChange={(e) => setStateSearch(e.target.value)}
+                      className="filter-input border-0 border-bottom"
+                      autoFocus
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div>
+                      {filteredStates.length === 0 ? (
+                        <div className="p-2 text-muted">No states found</div>
+                      ) : (
+                        filteredStates.map((s) => (
+                          <div
+                            key={s}
+                            className="p-2 hover-bg-light cursor-pointer"
+                            onClick={() => {
+                              setSelectedState(s);
+                              setShowStateDropdown(false);
+                              setStateSearch("");
+                            }}
+                          >
+                            {s}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="filter-group">
-                <label className="filter-label">District</label>
-                <select
-                  value={selectedDistrict}
-                  onChange={(e) => setSelectedDistrict(e.target.value)}
-                  className="filter-select"
-                  disabled={!selectedState}
-                >
-                  <option value="">Select District</option>
-                  {filteredDistricts.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="filter-group">
+              {/* City - Searchable Dropdown */}
+              <div className="filter-group position-relative">
                 <label className="filter-label">City</label>
-                <select
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
-                  className="filter-select"
-                  disabled={!selectedState}
+                <div
+                  className="filter-select d-flex align-items-center justify-content-between cursor-pointer"
+                  onClick={() => setShowCityDropdown(!showCityDropdown)}
+                  style={{ opacity: !selectedState ? 0.6 : 1 }}
                 >
-                  <option value="">Select City</option>
-                  {filteredCities.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                  <span>{selectedCity || "Please select"}</span>
+                  <span>▼</span>
+                </div>
+                {showCityDropdown && (
+                  <div className="position-absolute w-100 bg-white border rounded shadow mt-1" style={{ zIndex: 1000, maxHeight: "300px", overflowY: "auto" }}>
+                    <input
+                      type="text"
+                      placeholder="Search city..."
+                      value={citySearch}
+                      onChange={(e) => setCitySearch(e.target.value)}
+                      className="filter-input border-0 border-bottom"
+                      autoFocus
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div>
+                      {filteredCitiesList.length === 0 ? (
+                        <div className="p-2 text-muted">No cities found</div>
+                      ) : (
+                        filteredCitiesList.map((c) => (
+                          <div
+                            key={c}
+                            className="p-2 hover-bg-light cursor-pointer"
+                            onClick={() => {
+                              setSelectedCity(c);
+                              setShowCityDropdown(false);
+                              setCitySearch("");
+                            }}
+                          >
+                            {c}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="filter-group">
@@ -773,7 +822,6 @@ function Properties() {
                 >
                   <option value="">All Types</option>
                   <option value="villa">Villa</option>
-                  {/* <option value="condo">Condo</option> */}
                   <option value="multi_family_home">Multi Family Home</option>
                   <option value="single_family_home">Single Family Home</option>
                   <option value="commercial">Commercial</option>
@@ -790,6 +838,12 @@ function Properties() {
           </aside>
         </div>
       </div>
+
+      {/* Additional CSS */}
+      <style jsx>{`
+        .cursor-pointer { cursor: pointer; }
+        .hover-bg-light:hover { background-color: #f8f9fa; }
+      `}</style>
     </div>
   );
 }

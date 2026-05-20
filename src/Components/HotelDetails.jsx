@@ -158,7 +158,7 @@ const HotelDetails = () => {
 
       let url = `${AD_API_CONFIG.baseUrl}/${AD_API_CONFIG.apiPrefix}/advertisements?page=${page}&size=${size}&sortBy=${sortBy}&direction=${direction}`;
       if (property?.districtName) {
-        const sanitizedDistrict = (property.districtName || '').trim().replace(/[:\s]+/g, ''); // Remove colons, extra spaces
+        const sanitizedDistrict = (property.districtName || '').trim().replace(/[:\s]+/g, '');
         if (sanitizedDistrict) {
           url += `&districtName=${encodeURIComponent(sanitizedDistrict)}`;
         }
@@ -182,12 +182,10 @@ const HotelDetails = () => {
       const data = await response.json();
       console.log("Advertisement API response:", data);
 
-      // Handle various API response structures
       let ads = Array.isArray(data)
         ? data
         : data.content || data.data || data.ads || data.items || [];
 
-      // Normalize advertisement data
       ads = ads.map(ad => ({
         id: ad.id || ad._id || `ad-${Math.random().toString(36).substr(2, 9)}`,
         title: ad.title || 'Untitled Advertisement',
@@ -201,10 +199,8 @@ const HotelDetails = () => {
         instagramUrl: ad.instagramUrl || '',
         linkedinUrl: ad.linkedinUrl || '',
         youtubeUrl: ad.youtubeUrl || '',
-        // Add more social media fields if available in API
       }));
 
-      // Filter ads to ensure exact district match
       const filteredAds = ads.filter(ad => 
         ad.districtName.toLowerCase() === (property?.districtName || '').toLowerCase()
       );
@@ -261,12 +257,12 @@ const HotelDetails = () => {
 
       const allImages = [
         ...(data.images || []),
-        ...(data.rooms?.flatMap(room => room.images) || []),
+        ...(data.rooms?.flatMap(room => room.images || []) || []),
       ].filter(img => img);
 
       const allVideos = [
         ...(data.videos || []),
-        ...(data.rooms?.flatMap(room => room.videos) || []),
+        ...(data.rooms?.flatMap(room => room.videos || []) || []),
       ].filter(video => video);
 
       const amenities = [
@@ -275,7 +271,17 @@ const HotelDetails = () => {
         ),
       ];
 
-      const totalBeds = data.rooms?.reduce((sum, room) => sum + (room.inventoryCount || 0), 0) || 0;
+      const totalBeds = data?.rooms?.reduce((sum, room) => sum + (room.inventoryCount || 0), 0) || 0;
+
+      // FIXED OWNER OBJECT - ONLY PRIMITIVE VALUES (STRINGS)
+      const ownerData = {
+        name: 'Hotel Management',
+        phone: data.contactNumber || data.userId?.mobile || 'Not Available',
+        whatsapp: data.contactNumber || data.userId?.mobile || 'Not Available',
+        email: data.email || data.userId?.email || '',
+        avatar: data.userId?.profileImage || PLACEHOLDER_IMAGE,
+        role: 'Owner',
+      };
 
       const propertyData = {
         id: data._id || propertyId,
@@ -292,17 +298,11 @@ const HotelDetails = () => {
         garageSize: data.parkingSize || 'N/A',
         address: `${data.city || 'Unknown City'}, ${data.state || 'Unknown State'}, ${data.pincode || 'N/A'}`,
         city: data.city || 'Indore',
-        state: data.state || 'Indore',
+        state: data.state || 'Madhya Pradesh',
         districtName: data.city || 'Indore',
         zipCode: data.pincode || '452010',
         country: 'India',
-        owner: {
-          name: data.landlord?.name || data.userId || 'Unknown Agent',
-          phone: data.landlord?.contactNumber || data.contactNumber || '1234567890',
-          whatsapp: data.landlord?.contactNumber || data.contactNumber || '1234567890',
-          avatar: data.landlord?.profilePhoto || '/placeholder.jpg',
-          role: 'Agent',
-        },
+        owner: ownerData,
         createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-IN') : 'N/A',
         yearBuilt: data.yearBuilt || 'N/A',
         imageUrls: allImages.length > 0 ? allImages : [PLACEHOLDER_IMAGE],
@@ -351,7 +351,7 @@ const HotelDetails = () => {
         navigate('/properties', { state: { error: `Hotel ${propertyId} not found` } });
       } else if (err.message.includes('401')) {
         localStorage.removeItem('authData');
-        navigate('/login', { state: { from: `/HotelDetails/hotel/${propertyId}` } });
+        navigate('/login', { state: { from: `/HotelAndBanquetDetails/hotel/${propertyId}` } });
       }
     } finally {
       setLoading(false);
@@ -429,7 +429,7 @@ const HotelDetails = () => {
       setReviewSubmitError({ submit: error.message || 'Error submitting review. Please try again.' });
       if (error.message.includes('401') || error.message.includes('403')) {
         localStorage.removeItem('authData');
-        navigate('/login', { state: { from: `/HotelDetails/hotel/${propertyId}` } });
+        navigate('/login', { state: { from: `/HotelAndBanquetDetails/hotel/${propertyId}` } });
       }
     }
   };
@@ -442,7 +442,7 @@ const HotelDetails = () => {
 🛏️ Rooms: ${property?.area}
 🏠 Type: ${property?.type}
 👤 Owner: ${property?.owner.name}
-🔗 View more: ${window.location.origin}/HotelDetails/hotel/${propertyId}
+🔗 View more: ${window.location.origin}/HotelAndBanquetDetails/hotel/${propertyId}
     `.trim();
     const shareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + '\n' + property.imageUrls[0])}`;
     window.open(shareUrl, '_blank');
@@ -477,7 +477,7 @@ const HotelDetails = () => {
     if (auth?.token) {
       fetchProperty();
     } else {
-      navigate('/login', { state: { from: `/HotelDetails/hotel/${propertyId}` } });
+      navigate('/login', { state: { from: `/HotelAndBanquetDetails/hotel/${propertyId}` } });
     }
   }, [propertyId, navigate]);
 
@@ -493,8 +493,8 @@ const HotelDetails = () => {
 
   if (loading) {
     return (
-      <div className="spinner">
-        <div className="spinner-icon"></div>
+      <div className="">
+        {/* <div className="spinner-icon"></div> */}
         <p>Loading hotel details...</p>
       </div>
     );
@@ -524,6 +524,7 @@ const HotelDetails = () => {
     phone: '1234567890',
     whatsapp: '1234567890',
     avatar: '/placeholder.jpg',
+    email: '',
     role: 'Agent',
   };
 
@@ -616,10 +617,6 @@ const HotelDetails = () => {
                   icon={faLocationDot}
                   className={`landing-overlay-icons-i ${viewMode === 'location' ? 'active' : ''}`}
                   onClick={() => setViewMode('location')}
-                />
-                <FontAwesomeIcon
-                  icon={faHeart}
-                  className="landing-overlay-icons-i"
                 />
                 <FontAwesomeIcon
                   icon={faShare}
@@ -836,7 +833,6 @@ const HotelDetails = () => {
                           <FontAwesomeIcon icon={faYoutube} />
                         </a>
                       )}
-                      {/* Add more social media icons if additional fields are available */}
                     </div>
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -18,6 +18,7 @@ import Apartment3 from '../assets/apartment.avif';
 import Apartment4 from '../assets/studio.jpg';
 import Apartment6 from '../assets/penthouse.avif';
 import Apartment7 from '../assets/villa.avif';
+import AuthError from "../Components/AuthError";
 
 const fallbackImages = [Apartment, Apartment2, Apartment3, Apartment4, Apartment6, Apartment7];
 
@@ -66,6 +67,92 @@ const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
   return isNaN(distance) ? null : Number(distance.toFixed(2));
 };
 
+// Searchable Dropdown Component
+const SearchableDropdown = ({ options, value, onChange, placeholder, disabled = false }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  const filteredOptions = options.filter(option =>
+    option.label.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const selectedLabel = options.find(opt => opt.value === value)?.label || '';
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={wrapperRef} className="relative w-full">
+      <input
+        type="text"
+        value={isOpen ? searchTerm : selectedLabel}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        onFocus={() => setIsOpen(true)}
+        onClick={() => setIsOpen(true)}
+        placeholder={selectedLabel || placeholder}
+        disabled={disabled}
+        style={{
+          width: "100%",
+          padding: "8px",
+          border: "1px solid #e2e8f0",
+          borderRadius: "6px",
+          fontSize: "0.875rem",
+        }}
+        readOnly={false}
+      />
+      {isOpen && (
+        <div style={{
+          position: "absolute",
+          zIndex: 50,
+          marginTop: "4px",
+          width: "100%",
+          background: "#ffffff",
+          border: "1px solid #e2e8f0",
+          borderRadius: "6px",
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+          maxHeight: "200px",
+          overflow: "auto",
+        }}>
+          {filteredOptions.length === 0 ? (
+            <div style={{ padding: "8px", color: "#718096", fontSize: "0.875rem" }}>
+              No options found
+            </div>
+          ) : (
+            filteredOptions.map((option) => (
+              <div
+                key={option.value}
+                onClick={() => {
+                  onChange({ target: { value: option.value } });
+                  setSearchTerm('');
+                  setIsOpen(false);
+                }}
+                style={{
+                  padding: "8px",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  borderBottom: "1px solid #e2e8f0",
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = "#ebf8ff"}
+                onMouseLeave={(e) => e.target.style.backgroundColor = "#ffffff"}
+              >
+                {option.label}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 function ForSell() {
   const [properties, setProperties] = useState([]);
   const [filteredProperties, setFilteredProperties] = useState([]);
@@ -73,6 +160,7 @@ function ForSell() {
   const [error, setError] = useState(null);
   const [location, setLocation] = useState(null);
   const [locationError, setLocationError] = useState(null);
+  const [showAuthError, setShowAuthError] = useState(false);
 
   // Sidebar filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -85,12 +173,20 @@ function ForSell() {
   const [states, setStates] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [filteredDistricts, setFilteredDistricts] = useState([]);
-  const [filteredCities, setFilteredCities] = useState([]); // Changed to filteredCities
+  const [filteredCities, setFilteredCities] = useState([]);
   const [selectedState, setSelectedState] = useState("");
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
 
   const { baseUrl, apiPrefix } = API_CONFIG;
+
+  // Helper: Is property type residential?
+  const isResidentialType = (type) => {
+    if (!type) return true; // Default show if no type selected
+    const lowerType = type.toLowerCase();
+    const nonResidential = ["plot", "shop", "commercial"];
+    return !nonResidential.includes(lowerType);
+  };
 
   // ✅ Fetch For Sale properties
   useEffect(() => {
@@ -131,7 +227,7 @@ function ForSell() {
               owner: { name: property.owner?.name || "Unknown" },
               createdAt: property.createdAt || new Date().toISOString(),
               state: property.state || "",
-              districtName: property.districtName || property.district || "", // Support both field names
+              districtName: property.districtName || property.district || "",
               city: property.city || "",
               latitude: property.latitude || null,
               longitude: property.longitude || null,
@@ -144,7 +240,12 @@ function ForSell() {
         }
       } catch (err) {
         console.error("Fetch properties error:", err.message);
-        setError(err.message);
+
+        if (err.message === "Authentication failed. Please log in again.") {
+          setShowAuthError(true);
+        } else {
+          setError(err.message);
+        }
       } finally {
         setLoading(false);
       }
@@ -179,7 +280,7 @@ function ForSell() {
         const uniqueCities = [
           ...new Set(districtsData.map((d) => d.city).filter(Boolean)),
         ].sort();
-        setFilteredCities(uniqueCities); // Initialize filteredCities
+        setFilteredCities(uniqueCities);
       } catch (err) {
         console.error("Failed to load location data:", err.message);
       }
@@ -207,7 +308,7 @@ function ForSell() {
     }
   }, [selectedState, districts]);
 
-  // ✅ Update filtered cities when district changes (Copied from Properties.jsx)
+  // ✅ Update filtered cities when district changes
   useEffect(() => {
     if (selectedDistrict && selectedState) {
       const districtData = districts.filter(
@@ -269,19 +370,8 @@ function ForSell() {
     getUserLocation();
   }, []);
 
-  // ✅ Apply Filters and Sort by Distance (Aligned with Properties.jsx)
+  // ✅ Apply Filters and Sort by Distance
   const applyFilters = () => {
-    console.log("Applying filters with:", {
-      searchQuery,
-      filterPriceMin,
-      filterPriceMax,
-      filterBedrooms,
-      filterType,
-      selectedState,
-      selectedDistrict,
-      selectedCity,
-    });
-
     let filtered = [...properties];
 
     if (searchQuery.trim()) {
@@ -298,7 +388,8 @@ function ForSell() {
       filtered = filtered.filter((p) => Number(p.price) <= Number(filterPriceMax));
     }
 
-    if (filterBedrooms && !isNaN(filterBedrooms)) {
+    // Only apply bedrooms filter if selected type is residential
+    if (filterBedrooms && !isNaN(filterBedrooms) && isResidentialType(filterType)) {
       filtered = filtered.filter((p) => Number(p.bedrooms) >= Number(filterBedrooms));
     }
 
@@ -348,7 +439,6 @@ function ForSell() {
       });
     }
 
-    console.log("Filtered properties:", filtered);
     setFilteredProperties(filtered);
   };
 
@@ -368,7 +458,12 @@ function ForSell() {
   ]);
 
   if (loading) return <div style={{ padding: "20px" }}>Loading properties for sale…</div>;
-  if (error) return <div style={{ padding: "20px", color: "#dc3545" }}>Error: {error}</div>;
+  if (error && !showAuthError)
+    return (
+      <div style={{ padding: "20px", color: "#dc3545" }}>
+        Error: {error}
+      </div>
+    );
 
   return (
     <div>
@@ -406,7 +501,7 @@ function ForSell() {
           margin: "0 auto",
         }}
       >
-        {/* Left Section */}
+        {/* Left Section - Properties */}
         <div
           style={{
             flex: "3",
@@ -551,30 +646,47 @@ function ForSell() {
                       <FontAwesomeIcon icon={faMapMarkerAlt} />{" "}
                       {property.address || "No Address"}
                     </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "12px",
-                        fontSize: "0.875rem",
-                        color: "#4a5568",
-                        marginBottom: "10px",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                        <FontAwesomeIcon icon={faBed} /> {property.bedrooms || 0}
-                      </span>
-                      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                        <FontAwesomeIcon icon={faShower} />{" "}
-                        {property.bathrooms || 0}
-                      </span>
-                      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                        <FontAwesomeIcon icon={faCar} /> {property.garages || 0}
-                      </span>
-                      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+
+                    {/* Conditional display of bedrooms/bathrooms/garages */}
+                    {isResidentialType(property.type) && (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "12px",
+                          fontSize: "0.875rem",
+                          color: "#4a5568",
+                          marginBottom: "10px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <FontAwesomeIcon icon={faBed} /> {property.bedrooms || 0}
+                        </span>
+                        <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <FontAwesomeIcon icon={faShower} />{" "}
+                          {property.bathrooms || 0}
+                        </span>
+                        <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <FontAwesomeIcon icon={faCar} /> {property.garages || 0}
+                        </span>
+                        <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          {property.area || "N/A"} {property.sizePostfix || "Sq Ft"}
+                        </span>
+                      </div>
+                    )}
+
+                    {!isResidentialType(property.type) && (
+                      <div
+                        style={{
+                          fontSize: "0.875rem",
+                          color: "#4a5568",
+                          marginBottom: "10px",
+                        }}
+                      >
                         {property.area || "N/A"} {property.sizePostfix || "Sq Ft"}
-                      </span>
-                    </div>
+                      </div>
+                    )}
+
                     <span
                       style={{
                         fontWeight: "bold",
@@ -628,7 +740,7 @@ function ForSell() {
           </div>
         </div>
 
-        {/* Right Sidebar */}
+        {/* Right Sidebar - Filters */}
         <div
           style={{
             flex: "1",
@@ -655,7 +767,50 @@ function ForSell() {
                 Filter Properties For Sale
               </h3>
 
-              {/* 🔹 Location Filters */}
+
+
+  {/* 🔹 Property Type - Moved up */}
+              <div style={{ marginBottom: "15px" }}>
+                <label
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: "500",
+                    color: "#1a202c",
+                    marginBottom: "5px",
+                    display: "block",
+                  }}
+                >
+                  Property Type
+                </label>
+                <select
+                  value={filterType}
+                  onChange={(e) => {
+                    setFilterType(e.target.value);
+                    if (!isResidentialType(e.target.value)) {
+                      setFilterBedrooms(""); // Clear bedrooms filter for non-residential
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "6px",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  <option value="">All Types</option>
+                  <option value="villa">Villa</option>
+                  <option value="multi_family_home">Multi Family Home</option>
+                  <option value="single_family_home">Single Family Home</option>
+                  <option value="commercial">Commercial / Shop</option>
+                  <option value="house">House</option>
+                  <option value="plot">Plot</option>
+                  <option value="apartment">Apartment</option>
+                </select>
+              </div>
+
+              
+              {/* 🔹 State - Searchable */}
               <div style={{ marginBottom: "15px" }}>
                 <label
                   style={{
@@ -668,26 +823,15 @@ function ForSell() {
                 >
                   State
                 </label>
-                <select
+                <SearchableDropdown
+                  options={states.map(s => ({ value: s, label: s }))}
                   value={selectedState}
                   onChange={(e) => setSelectedState(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "6px",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  <option value="">All States</option>
-                  {states.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="All States"
+                />
               </div>
 
+              {/* 🔹 District - Searchable */}
               <div style={{ marginBottom: "15px" }}>
                 <label
                   style={{
@@ -700,26 +844,18 @@ function ForSell() {
                 >
                   District
                 </label>
-                <select
+                <SearchableDropdown
+                  options={filteredDistricts.map(d => ({ value: d, label: d }))}
                   value={selectedDistrict}
                   onChange={(e) => setSelectedDistrict(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "6px",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  <option value="">All Districts</option>
-                  {filteredDistricts.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="All Districts"
+                  disabled={filteredDistricts.length === 0}
+                />
               </div>
 
+            
+
+              {/* 🔹 City - Searchable */}
               <div style={{ marginBottom: "15px" }}>
                 <label
                   style={{
@@ -732,27 +868,16 @@ function ForSell() {
                 >
                   City
                 </label>
-                <select
+                <SearchableDropdown
+                  options={filteredCities.map(c => ({ value: c, label: c }))}
                   value={selectedCity}
                   onChange={(e) => setSelectedCity(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "6px",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  <option value="">All Cities</option>
-                  {filteredCities.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="All Cities"
+                  disabled={filteredCities.length === 0}
+                />
               </div>
 
-              {/* Existing Filters */}
+              {/* Remaining Filters */}
               <div style={{ marginBottom: "15px" }}>
                 <label
                   style={{
@@ -834,70 +959,39 @@ function ForSell() {
                 />
               </div>
 
-              <div style={{ marginBottom: "15px" }}>
-                <label
-                  style={{
-                    fontSize: "0.875rem",
-                    fontWeight: "500",
-                    color: "#1a202c",
-                    marginBottom: "5px",
-                    display: "block",
-                  }}
-                >
-                  Minimum Bedrooms
-                </label>
-                <select
-                  value={filterBedrooms}
-                  onChange={(e) => setFilterBedrooms(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "6px",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  <option value="">Any</option>
-                  <option value="1">1+</option>
-                  <option value="2">2+</option>
-                  <option value="3">3+</option>
-                  <option value="4">4+</option>
-                </select>
-              </div>
-
-              <div style={{ marginBottom: "15px" }}>
-                <label
-                  style={{
-                    fontSize: "0.875rem",
-                    fontWeight: "500",
-                    color: "#1a202c",
-                    marginBottom: "5px",
-                    display: "block",
-                  }}
-                >
-                  Property Type
-                </label>
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "6px",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  <option value="">All Types</option>
-                  <option value="villa">Villa</option>
-                  <option value="multi_family_home">Multi Family Home</option>
-                  <option value="single_family_home">Single Family Home</option>
-                  <option value="commercial">Commercial</option>
-                  <option value="house">House</option>
-                  <option value="plot">Plot</option>
-                  <option value="apartment">Apartment</option>
-                </select>
-              </div>
+              {/* Conditional Minimum Bedrooms Filter */}
+              {isResidentialType(filterType) && (
+                <div style={{ marginBottom: "15px" }}>
+                  <label
+                    style={{
+                      fontSize: "0.875rem",
+                      fontWeight: "500",
+                      color: "#1a202c",
+                      marginBottom: "5px",
+                      display: "block",
+                    }}
+                  >
+                    Minimum Bedrooms
+                  </label>
+                  <select
+                    value={filterBedrooms}
+                    onChange={(e) => setFilterBedrooms(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "6px",
+                      fontSize: "0.875rem",
+                    }}
+                  >
+                    <option value="">Any</option>
+                    <option value="1">1+</option>
+                    <option value="2">2+</option>
+                    <option value="3">3+</option>
+                    <option value="4">4+</option>
+                  </select>
+                </div>
+              )}
 
               <button
                 style={{
@@ -919,6 +1013,11 @@ function ForSell() {
           </aside>
         </div>
       </div>
+
+      <AuthError
+        open={showAuthError}
+        onClose={() => setShowAuthError(false)}
+      />
     </div>
   );
 }
