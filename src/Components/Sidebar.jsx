@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPhone, faEnvelope, faMessage, faChevronLeft, faTimes, faGlobe } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram, faFacebookF, faYoutube, faTwitter, faLinkedinIn } from '@fortawesome/free-brands-svg-icons';
@@ -50,6 +50,24 @@ const Sidebar = ({
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const filteredRooms = useMemo(() => {
+    const query = chatSearchQuery.trim().toLowerCase();
+    if (!query) return rooms;
+    return rooms.filter((room) => {
+      const searchable = [
+        room.name,
+        room.senderName,
+        room.title,
+        room.district,
+        room.owner?.name,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return searchable.includes(query);
+    });
+  }, [rooms, chatSearchQuery]);
   const [typingTimeout, setTypingTimeout] = useState(null);
   const [visitForm, setVisitForm] = useState({
     propertyId: propertyId || "17",
@@ -350,6 +368,25 @@ const Sidebar = ({
         }
       );
       const newMessage = response.data;
+      console.log('Message posted to REST API, will publish to WebSocket if connected', newMessage);
+      // Publish via STOMP so other clients receive it in real-time
+      try {
+        sendMessageToSocket({
+          destination: `/app/chat/${activeRoom.id}/send`,
+          body: JSON.stringify({
+            content: inputText,
+            id: newMessage.id,
+            chatRoomId: activeRoom.id,
+            sender: { id: userId, name: userName },
+            type: 'MESSAGE',
+            status: 'SENT',
+            createdAt: newMessage.createdAt || new Date().toISOString(),
+          }),
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch (e) {
+        console.error('Failed to publish message over STOMP:', e);
+      }
       setMessages((prev) => {
         const existingMessages = prev[activeRoom.id] || [];
         const isDuplicate = existingMessages.some((msg) => msg.id === newMessage.id);
@@ -1469,6 +1506,8 @@ const Sidebar = ({
                     <div className="search-bar p-4">
                       <input
                         type="text"
+                        value={chatSearchQuery}
+                        onChange={(e) => setChatSearchQuery(e.target.value)}
                         placeholder="Search or start a new chat"
                         className="w-full p-2 border rounded-lg"
                         disabled={isGuest}
@@ -1476,7 +1515,7 @@ const Sidebar = ({
                       />
                     </div>
                     <div className="chat-list">
-                      {rooms.map((chat) => (
+                      {filteredRooms.length > 0 ? filteredRooms.map((chat) => (
                         <div
                           className={`chat-item flex gap-3 p-4 ${activeRoom?.id === chat.id ? 'active' : ''}`}
                           key={chat.id}
@@ -1510,10 +1549,13 @@ const Sidebar = ({
                             )}
                           </div>
                         </div>
-                      ))}
-                      {isGuest && (
+                      )) : (
                         <div className="p-4 text-center text-gray-500">
-                          Please log in to view chat rooms.
+                          {isGuest
+                            ? 'Please log in to view chat rooms.'
+                            : chatSearchQuery.trim()
+                              ? 'No chats match your search.'
+                              : 'No chat rooms available.'}
                         </div>
                       )}
                     </div>
@@ -1861,6 +1903,7 @@ const initWebSocket = (token, roomId, setIsConnected, setMessages, setTypingUser
     reconnectDelay: 5000,
     onConnect: () => {
       console.log('✅ WebSocket connected');
+      try { window.__stompClient = stompClient; } catch(e) {}
       setIsConnected(true);
       if (roomId) {
         subscribeToRoom(roomId, setMessages, setTypingUsers, setIsConnected);
@@ -1886,8 +1929,21 @@ const sendMessageToSocket = ({ destination, body, headers }) => {
   if (stompClient && stompClient.connected) {
     console.log('Sending message:', { destination, body });
     stompClient.publish({ destination, body, headers });
+  } else if (stompClient && !stompClient.connected) {
+    console.warn('⚠️ WebSocket not connected — attempting to reconnect and retry');
+    try {
+      stompClient.activate();
+    } catch (e) {}
+    setTimeout(() => {
+      if (stompClient && stompClient.connected) {
+        console.log('Retrying send after reconnect:', { destination, body });
+        stompClient.publish({ destination, body, headers });
+      } else {
+        console.error('Failed to send: WebSocket still not connected');
+      }
+    }, 700);
   } else {
-    console.warn('⚠️ WebSocket not ready');
+    console.warn('⚠️ No WebSocket client available');
   }
 };
 
@@ -1896,6 +1952,16 @@ const sendTypingEvent = ({ destination, body, headers }) => {
   if (stompClient && stompClient.connected) {
     console.log('Sending typing event:', { destination, body });
     stompClient.publish({ destination, body, headers });
+  } else if (stompClient && !stompClient.connected) {
+    console.warn('⚠️ WebSocket not connected — attempting to reconnect (typing event)');
+    try {
+      stompClient.activate();
+    } catch (e) {}
+    setTimeout(() => {
+      if (stompClient && stompClient.connected) {
+        stompClient.publish({ destination, body, headers });
+      }
+    }, 700);
   }
 };
 
@@ -1907,6 +1973,7 @@ const closeWebSocket = () => {
       currentSubscription = null;
     }
     stompClient.deactivate();
+    try { window.__stompClient = null; } catch(e) {}
     stompClient = null;
     console.log('WebSocket closed');
   }

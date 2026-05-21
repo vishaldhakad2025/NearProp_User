@@ -33,7 +33,7 @@ function Termsandcondition() {
         <div className="terms-content">
           <section id="acceptance">
             <h3>1. Acceptance of Terms</h3>
-            <p>Welcome to NearProp (“we,” “our,” “us”). By accessing or using our website (nearprop.in) and mobile application, you agree to comply with and be bound by these Terms & Conditions. Please read them carefully.</p>
+            <p>Welcome to NearProp (“we,” “our,” “us”). By accessing or using our website (nearprop.com) and mobile application, you agree to comply with and be bound by these Terms & Conditions. Please read them carefully.</p>
             <p>By accessing or using NearProp, you agree to these Terms & Conditions and our Privacy Policy. If you do not agree, you must discontinue using our platform.</p>
           </section>
 

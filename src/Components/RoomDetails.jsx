@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBuilding, faStar as faSolidStar } from '@fortawesome/free-regular-svg-icons';
 import { FaStar } from 'react-icons/fa';
 const API_CONFIG = {
-  baseUrl: 'https://hotel-banquet.nearprop.in',
+  baseUrl: 'https://hotel-banquet.nearprop.com',
   apiPrefix: 'api',
 };
 const RoomDetails = () => {

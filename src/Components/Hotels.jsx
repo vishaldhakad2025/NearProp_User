@@ -29,7 +29,7 @@ import Apartment7 from '../assets/villa.avif';
 const fallbackImages = [Apartment, Apartment2, Apartment3, Apartment4, Apartment6, Apartment7];
 
 const API_CONFIG = {
-  hotelBanquetBaseUrl: 'https://hotel-banquet.nearprop.in',
+  hotelBanquetBaseUrl: 'https://hotel-banquet.nearprop.com',
   apiPrefix: 'api',
 };
 

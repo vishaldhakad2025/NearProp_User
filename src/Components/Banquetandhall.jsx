@@ -15,7 +15,7 @@ import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 
 const API_CONFIG = {
-  baseUrl: 'https://hotel-banquet.nearprop.in',
+  baseUrl: 'https://hotel-banquet.nearprop.com',
   apiPrefix: 'api',
 };
 

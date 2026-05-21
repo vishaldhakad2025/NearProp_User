@@ -14,7 +14,7 @@ const fallbackImages = [Apartment, Apartment2, Apartment3, Apartment4, Apartment
 
 const API_CONFIG = {
   featuredBaseUrl: 'https://api.nearprop.com',
-  hotelBanquetBaseUrl: 'https://hotel-banquet.nearprop.in',
+  hotelBanquetBaseUrl: 'https://hotel-banquet.nearprop.com',
   pgHostelBaseUrl: 'https://pg-hostel.nearprop.com',
   apiPrefix: 'api',
 };

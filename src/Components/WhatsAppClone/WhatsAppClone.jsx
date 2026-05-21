@@ -166,12 +166,12 @@ const WhatsAppClone = () => {
       setRooms([]);
       setError('Please log in to view chat rooms.');
       return;
-    }
+    } 
     try {
       setIsLoading(true);
       let endpoint;
       if (userRole === 'DEVELOPER') {
-        endpoint = `${API_CONFIG.baseUrl}/${API_CONFIG.apiPrefix}/chat/property/rooms`;
+        endpoint = `${API_CONFIG.baseUrl}/${API_CONFIG.apiPrefix}/chat/rooms`;
       } else if (userRole === 'ADMIN') {
         endpoint = `${API_CONFIG.baseUrl}/${API_CONFIG.apiPrefix}/admin/chat/rooms`;
       } else {

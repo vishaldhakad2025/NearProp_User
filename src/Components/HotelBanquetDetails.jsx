@@ -14,7 +14,7 @@ import axios from 'axios';
 import { baseurl } from '../../BaseUrl';
 
 const API_CONFIG = {
-  baseUrl: 'https://hotel-banquet.nearprop.in',
+  baseUrl: 'https://hotel-banquet.nearprop.com',
   apiPrefix: 'api',
 };
 

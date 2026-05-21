@@ -30,7 +30,7 @@ function PrivacyPolicy() {
         <div className="privacy-content">
           <section id="introduction">
             <h3>Introduction</h3>
-            <p>NearProp (“we,” “our,” “us”) values your trust and is committed to protecting your personal information. This Privacy Policy explains how we collect, use, share, and safeguard your data when you use our website (nearprop.in), mobile application, and related services.</p>
+            <p>NearProp (“we,” “our,” “us”) values your trust and is committed to protecting your personal information. This Privacy Policy explains how we collect, use, share, and safeguard your data when you use our website (nearprop.com), mobile application, and related services.</p>
             <p>This Privacy Policy outlines:</p>
             <ul>
               <li>The types of data we collect from you.</li>

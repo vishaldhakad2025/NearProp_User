@@ -9,7 +9,7 @@ import { FaWhatsapp } from 'react-icons/fa';
 const API_CONFIG = {
   baseUrl: 'https://api.nearprop.com',
   apiPrefix: 'api',
-  wsUrl: 'ws://api.nearprop.com/api/ws',
+  wsUrl: 'wss://api.nearprop.com/api/ws',
 };
 
 const FALLBACK_AD = [
@@ -111,10 +111,11 @@ const initWebSocket = (token, roomId, setIsConnected, setMessages, setTypingUser
   stompClient = new Client({
     brokerURL: `${API_CONFIG.wsUrl}?token=${token}`,
     connectHeaders: { Authorization: `Bearer ${token}` },
-    // debug: (str) => console.log('[STOMP] ' + str),
+    debug: (str) => console.debug('[STOMP]', str),
     reconnectDelay: 5000,
     onConnect: () => {
       console.log('✅ WebSocket connected');
+      try { window.__stompClient = stompClient; } catch(e) {}
       setIsConnected(true);
       if (roomId) {
         subscribeToRoom(roomId, setMessages, setTypingUsers, setIsConnected);
@@ -122,6 +123,7 @@ const initWebSocket = (token, roomId, setIsConnected, setMessages, setTypingUser
     },
     onStompError: (frame) => console.error('STOMP error:', frame.headers['message']),
     onWebSocketError: (evt) => console.error('WebSocket error:', evt),
+    onWebSocketClose: (evt) => console.warn('WebSocket closed event:', evt),
     onDisconnect: () => {
       console.warn('🔌 WebSocket disconnected');
       setIsConnected(false);
@@ -136,8 +138,21 @@ const sendMessageToSocket = ({ destination, body, headers }) => {
   if (stompClient && stompClient.connected) {
     console.log('Sending message:', { destination, body });
     stompClient.publish({ destination, body, headers });
+  } else if (stompClient && !stompClient.connected) {
+    console.warn('⚠️ WebSocket not connected — attempting to reconnect and retry');
+    try {
+      stompClient.activate();
+    } catch (e) {}
+    setTimeout(() => {
+      if (stompClient && stompClient.connected) {
+        console.log('Retrying send after reconnect:', { destination, body });
+        stompClient.publish({ destination, body, headers });
+      } else {
+        console.error('Failed to send: WebSocket still not connected');
+      }
+    }, 700);
   } else {
-    console.warn('⚠️ WebSocket not ready');
+    console.warn('⚠️ No WebSocket client available');
   }
 };
 
@@ -145,6 +160,16 @@ const sendTypingEvent = ({ destination, body, headers }) => {
   if (stompClient && stompClient.connected) {
     console.log('Sending typing event:', { destination, body });
     stompClient.publish({ destination, body, headers });
+  } else if (stompClient && !stompClient.connected) {
+    console.warn('⚠️ WebSocket not connected — attempting to reconnect (typing event)');
+    try {
+      stompClient.activate();
+    } catch (e) {}
+    setTimeout(() => {
+      if (stompClient && stompClient.connected) {
+        stompClient.publish({ destination, body, headers });
+      }
+    }, 700);
   }
 };
 
@@ -155,6 +180,7 @@ const closeWebSocket = () => {
       currentSubscription = null;
     }
     stompClient.deactivate();
+    try { window.__stompClient = null; } catch(e) {}
     stompClient = null;
     console.log('WebSocket closed');
   }

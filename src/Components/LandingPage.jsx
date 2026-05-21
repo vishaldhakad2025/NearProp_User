@@ -32,7 +32,7 @@ import DownloadApp from './DownloadApp';
 
 const API_CONFIG = {
   baseUrl: 'https://api.nearprop.com',
-  hotelBanquetBaseUrl: 'https://hotel-banquet.nearprop.in',
+  hotelBanquetBaseUrl: 'https://hotel-banquet.nearprop.com',
   pgHostelBaseUrl: 'https://pg-hostel.nearprop.com',
   apiPrefix: 'api',
 };
