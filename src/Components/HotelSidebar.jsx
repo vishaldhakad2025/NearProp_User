@@ -132,7 +132,7 @@ const HotelSidebar = ({ propertyId, propertyTitle, owner, propertydata }) => {
     setCurrentAdIndex(index);
   };
 
-  const handleContactSubmit = (e) => {
+  const handleContactSubmit = async (e) => {
     e.preventDefault();
     const errors = {};
     if (!contactForm.name.trim()) errors.name = 'Name is required';
@@ -145,10 +145,50 @@ const HotelSidebar = ({ propertyId, propertyTitle, owner, propertydata }) => {
       return;
     }
 
-    console.log('Contact form submitted:', contactForm);
-    setContactForm({ name: '', email: '', message: '' });
-    setFormError(null);
-    alert('Message sent successfully!');
+    const auth = getToken();
+    if (!auth?.token || !auth?.userId) {
+      alert('Please log in to contact the agent.');
+      return;
+    }
+
+    try {
+      const payload = {
+        userId: auth.userId,
+        name: contactForm.name,
+        email: contactForm.email,
+        message: contactForm.message,
+      };
+
+      const externalPropertyId = propertydata?.permanentId || propertyId;
+      const isHotel = propertydata?.type?.toLowerCase().includes('hotel');
+      const isBanquet = propertydata?.type?.toLowerCase().includes('banquet');
+
+      if (isHotel) {
+        payload.hotelId = externalPropertyId;
+      } else if (isBanquet) {
+        payload.banquetId = externalPropertyId;
+      } else {
+        payload.hotelId = externalPropertyId;
+      }
+
+      await axios.post(
+        'https://hotel-banquet.nearprop.com/api/contact',
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      setContactForm({ name: '', email: '', message: '' });
+      setFormError(null);
+      alert('Message sent successfully!');
+    } catch (err) {
+      console.error('Contact form submission error:', err);
+      alert(err.response?.data?.message || 'Failed to send message. Please try again.');
+    }
   };
        
   const handleAdContactClick = (ad, clickType, url) => {

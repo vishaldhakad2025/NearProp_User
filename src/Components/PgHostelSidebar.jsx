@@ -25,6 +25,7 @@ const PgHostelSidebar = ({ propertyId = "", propertyTitle = "", propertydata, ow
   });
   const [visitError, setVisitError] = useState(null);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showInvalidDateDialog, setShowInvalidDateDialog] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
 
   // Updated getToken function with double-stringify fix and better debugging
@@ -77,6 +78,24 @@ const PgHostelSidebar = ({ propertyId = "", propertyTitle = "", propertydata, ow
 
   const token = isGuest ? null : getToken();
 
+  const getTomorrowMinDateTime = () => {
+    const tomorrow = new Date();
+    tomorrow.setHours(0, 0, 0, 0);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().slice(0, 16);
+  };
+
+  const validateVisitDate = (dateString) => {
+    if (!dateString) return false;
+    const selected = new Date(dateString);
+    if (Number.isNaN(selected.getTime())) return false;
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    return selected > endOfToday;
+  };
+
+  const minDateTime = getTomorrowMinDateTime();
+
   // Normalize owner data
   const normalizedOwner = {
     name: owner?.name || 'Unknown Agent',
@@ -90,6 +109,11 @@ const PgHostelSidebar = ({ propertyId = "", propertyTitle = "", propertydata, ow
     e.preventDefault();
     if (isGuest || !token) {
       setVisitError('Please log in to schedule a visit.');
+      return;
+    }
+    if (!visitForm.scheduledTime || !validateVisitDate(visitForm.scheduledTime)) {
+      setVisitError('Please select a future date starting tomorrow. Today is not accepted.');
+      setShowInvalidDateDialog(true);
       return;
     }
     try {
@@ -175,8 +199,6 @@ const PgHostelSidebar = ({ propertyId = "", propertyTitle = "", propertydata, ow
       setChatLoading(false);
     }
   };
-
-  const minDateTime = new Date().toISOString().slice(0, 16);
   
   // Check for basic plan
   const planName = (propertydata?.subscriptionPlanName || "").toString().trim().toLowerCase();
@@ -388,38 +410,54 @@ const PgHostelSidebar = ({ propertyId = "", propertyTitle = "", propertydata, ow
         </div>
 
         {activeTab === 'tour' && (
-          <form onSubmit={handleScheduleVisit} style={{padding: '1rem', background: '#f9fafb', borderRadius: '8px'}}>
-            <div style={{marginBottom: '1rem'}}>
-              <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>Select Date & Time</label>
-              <input
-                type="datetime-local"
-                value={visitForm.scheduledTime}
-                onChange={(e) => setVisitForm({ ...visitForm, scheduledTime: e.target.value })}
-                required
-                min={minDateTime}
-                style={{width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db'}}
+          <>
+            <form onSubmit={handleScheduleVisit} style={{padding: '1rem', background: '#f9fafb', borderRadius: '8px'}}>
+              <div style={{marginBottom: '1rem'}}>
+                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>Select Date & Time</label>
+                <input
+                  type="datetime-local"
+                  value={visitForm.scheduledTime}
+                  onChange={(e) => setVisitForm({ ...visitForm, scheduledTime: e.target.value })}
+                  required
+                  min={minDateTime}
+                  style={{width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db'}}
+                  disabled={isGuest || !token}
+                />
+              </div>
+              <div style={{marginBottom: '1rem'}}>
+                <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>Additional Notes</label>
+                <textarea
+                  placeholder="Enter your notes"
+                  value={visitForm.notes}
+                  onChange={(e) => setVisitForm({ ...visitForm, notes: e.target.value })}
+                  style={{width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db', minHeight: '80px'}}
+                  disabled={isGuest || !token}
+                />
+              </div>
+              <button
+                type="submit"
+                style={{width: '100%', padding: '0.75rem', background: '#3b82f6', color: 'white', borderRadius: '6px', border: 'none', fontWeight: '500', cursor: 'pointer'}}
                 disabled={isGuest || !token}
-              />
-            </div>
-            <div style={{marginBottom: '1rem'}}>
-              <label style={{display: 'block', marginBottom: '0.5rem', fontWeight: '500'}}>Additional Notes</label>
-              <textarea
-                placeholder="Enter your notes"
-                value={visitForm.notes}
-                onChange={(e) => setVisitForm({ ...visitForm, notes: e.target.value })}
-                style={{width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #d1d5db', minHeight: '80px'}}
-                disabled={isGuest || !token}
-              />
-            </div>
-            <button
-              type="submit"
-              style={{width: '100%', padding: '0.75rem', background: '#3b82f6', color: 'white', borderRadius: '6px', border: 'none', fontWeight: '500', cursor: 'pointer'}}
-              disabled={isGuest || !token}
-            >
-              Submit Tour Request
-            </button>
-            {visitError && <p style={{color: '#ef4444', marginTop: '0.5rem', fontSize: '0.875rem'}}>{visitError}</p>}
-          </form>
+              >
+                Submit Tour Request
+              </button>
+              {visitError && <p style={{color: '#ef4444', marginTop: '0.5rem', fontSize: '0.875rem'}}>{visitError}</p>}
+            </form>
+            {showInvalidDateDialog && (
+              <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1rem'}} onClick={() => setShowInvalidDateDialog(false)}>
+                <div style={{background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '420px', padding: '24px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)'}} onClick={(e) => e.stopPropagation()}>
+                  <h2 style={{margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#111827'}}>Invalid Visit Date</h2>
+                  <p style={{marginTop: '0.75rem', color: '#374151'}}>Please select a date from tomorrow onwards. Visits cannot be scheduled for today.</p>
+                  <button
+                    onClick={() => setShowInvalidDateDialog(false)}
+                    style={{marginTop: '1rem', width: '100%', padding: '0.75rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer'}}
+                  >
+                    Select Next Date
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {activeTab === 'info' && (

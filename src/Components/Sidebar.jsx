@@ -78,6 +78,7 @@ const Sidebar = ({
   const [visitError, setVisitError] = useState(null);
   const [visitSuccess, setVisitSuccess] = useState(null);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showInvalidDateDialog, setShowInvalidDateDialog] = useState(false);
   const [isFetchingVisits, setIsFetchingVisits] = useState(false);
   const [visitPage, setVisitPage] = useState(0);
 
@@ -452,6 +453,13 @@ const Sidebar = ({
       setVisitError('Please log in to schedule a visit.');
       return;
     }
+
+    if (!visitForm.scheduledTime || !validateVisitDate(visitForm.scheduledTime)) {
+      setVisitError('Please select a future date starting tomorrow. Today is not accepted.');
+      setShowInvalidDateDialog(true);
+      return;
+    }
+
     try {
       const response = await axios.post(
         `${API_CONFIG.baseUrl}/${API_CONFIG.apiPrefix}/visits`,
@@ -642,7 +650,22 @@ const Sidebar = ({
   }, [activeRoom, token, isGuest]);
 
   const ad = advertisements.length > 0 ? advertisements[0] : null;
-  const minDateTime = new Date().toISOString().slice(0, 16);
+  const getTomorrowMinDateTime = () => {
+    const tomorrow = new Date();
+    tomorrow.setHours(0, 0, 0, 0);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().slice(0, 16);
+  };
+  const minDateTime = getTomorrowMinDateTime();
+
+  const validateVisitDate = (dateString) => {
+    if (!dateString) return false;
+    const selected = new Date(dateString);
+    if (Number.isNaN(selected.getTime())) return false;
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    return selected > endOfToday;
+  };
 
   return (
     <div>
@@ -1662,6 +1685,23 @@ const Sidebar = ({
                     aria-label="Close success dialog"
                   >
                     Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {showInvalidDateDialog && (
+            <div className="chat-modal-overlay" onClick={() => setShowInvalidDateDialog(false)}>
+              <div className="success-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="success-modal-content">
+                  <h2 className="success-modal-title">Invalid Visit Date</h2>
+                  <p className="success-modal-message">Please select a date from tomorrow onwards. Visits cannot be scheduled for today.</p>
+                  <button
+                    onClick={() => setShowInvalidDateDialog(false)}
+                    className="success-modal-button"
+                    aria-label="Close invalid date dialog"
+                  >
+                    Select Next Date
                   </button>
                 </div>
               </div>

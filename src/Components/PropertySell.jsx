@@ -171,53 +171,52 @@ const PropertySell = () => {
 
       setProperty({
         id: data.id || propertyId,
-        title: data.title || 'Untitled Property',
-        description: data.description || 'No description available.',
-        type: data.type || 'Apartment',
-        status: data.status || 'For Sale',
-        label: data.label || '',
-        price: data.price ? parseFloat(data.price) : 11000,
-        area: data.area ? `${data.area}` : '1789',
-        landAreaPostfix: data.landAreaPostfix || data.sizePostfix || 'sq.ft',
-        bedrooms: data.bedrooms || 3,
-        bathrooms: data.bathrooms || 1,
-        garages: data.garages || 1,
-        garageSize: data.garageSize || '200 Sq Ft',
-        address: data.address || '8100 S Ashland Ave',
-        city: data.city || 'Chicago',
-        state: data.state || 'Illinois',
-        districtName: data.districtName || 'Beverly',
-        country: data.country || 'India',
+        title: data.title ?? '',
+        description: data.description ?? '',
+        type: data.type ?? '',
+        status: data.status ?? '',
+        label: data.label ?? '',
+        price: data.price ?? 0,
+        area: data.area ?? '',
+        landAreaPostfix: data.sizePostfix ?? 'sq.ft',
+        bedrooms: data.bedrooms ?? 0,
+        bathrooms: data.bathrooms ?? 0,
+        garages: data.garages ?? 0,
+        garageSize: data.garageSize ?? '',
+        address: data.address ?? '',
+        city: data.city ?? '',
+        state: data.state ?? '',
+        districtName: data.districtName ?? '',
+        country: data.country ?? '',
         owner: {
-          name: data.owner?.name || 'Unknown Agent',
-          phone: data.owner?.phone || '1234567890',
-          whatsapp: data.owner?.whatsapp || '1234567890',
+          name: data.owner?.name ?? '',
+          phone: data.owner?.phone ?? '',
+          whatsapp: data.owner?.whatsapp ?? '',
           avatar: data.owner?.avatar || data.imageUrls?.[0] || Apartment,
-          role: data.owner?.role || 'Agent',
+          role: data.owner?.role ?? '',
         },
         createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A',
-        yearBuilt: data.yearBuilt,
+        yearBuilt: data.yearBuilt ?? 0,
         imageUrls: data.imageUrls && data.imageUrls.length > 0 ? data.imageUrls : [Apartment],
-        features: data.features && Array.isArray(data.features) && data.features.length > 0 ? data.features : ['No features available'],
+        features: data.features && Array.isArray(data.features) && data.features.length > 0 ? data.features : [],
         securityFeatures: data.securityFeatures || [],
         luxuriousFeatures: data.luxuriousFeatures || [],
         additionalDetails: {
-          deposit: data.deposit || '20%',
-          poolSize: data.poolSize || '300 Sq Ft',
-          lastRemodelYear: data.lastRemodelYear || 1987,
-          features: data.features || 'Clubhouse',
-          additionalRooms: { guestBath: true, equipment: data.equipment || 'Grill - Gas' },
+          deposit: data.deposit ?? '',
+          poolSize: data.poolSize ?? '',
+          lastRemodelYear: data.lastRemodelYear ?? 0,
+          features: data.features || '',
+          additionalRooms: { guestBath: false, equipment: data.equipment ?? '' },
         },
-        permanentId: data.permanentId || 'HZ28',
-        latitude: data.latitude || 41.7468,
-        longitude: data.longitude || -87.6636,
-        videoUrl: data.videoUrl || null,
-        approved: data.approved ?? true,
+        permanentId: data.permanentId ?? '',
+        latitude: data.latitude ?? 0,
+        longitude: data.longitude ?? 0,
+        videoUrl: data.videoUrl ?? null,
+        approved: data.approved ?? false,
         featured: data.featured ?? false,
         active: data.active ?? true,
-        subscriptionExpiry: data.subscriptionExpiry || new Date().toISOString(),
-        subscriptionPlanName: data.subscriptionPlanName || "Basic",
-  subscriptionExpiry: data.subscriptionExpiry || new Date().toISOString(),
+        subscriptionExpiry: data.subscriptionExpiry ?? new Date().toISOString(),
+        subscriptionPlanName: data.subscriptionPlanName ?? '',
       });
       setMainImage(data.imageUrls && data.imageUrls.length > 0 ? data.imageUrls[0] : Apartment);
     } catch (err) {
@@ -1665,11 +1664,19 @@ ${property?.type?.toLowerCase() !== 'plot' ? `🛏️ Bedrooms: ${property?.bedr
               <Link to="/"><FontAwesomeIcon icon={faBuilding} /> Home</Link> <span>&gt;</span> <Link to="/properties">Properties</Link> <span>&gt;</span> {property?.title || 'Property'}
             </div>
             <h1 className="property-title">{property?.title || 'Untitled Property'}</h1>
-            <p className="location"><FontAwesomeIcon icon={faLocationDot} /> {property?.address || 'N/A'}, {property?.city || 'N/A'}, {property?.state || 'N/A'}</p>
+            {(property?.address || property?.city || property?.state) && (
+              <p className="location"><FontAwesomeIcon icon={faLocationDot} /> {property?.address} {property?.address && property?.city ? ',' : ''} {property?.city} {(property?.address || property?.city) && property?.state ? ',' : ''} {property?.state}</p>
+            )}
             <div className="labels">
               {property?.featured && <span className="label featured"><FontAwesomeIcon icon={faSolidStar} /> Featured</span>}
               <span className="label for-sale">{property?.status || ''}</span>
               <span className="label for-sale">{property?.label || ''}</span>
+              {reviewCount > 0 && (
+                <span className="label" style={{ backgroundColor: '#f59e0b', color: '#fff' }}>
+                  <FontAwesomeIcon icon={faSolidStar} style={{ marginRight: '4px' }} />
+                  {averageRating} ({reviewCount} reviews)
+                </span>
+              )}
             </div>
           </div>
           <div className="property-price">
@@ -1750,13 +1757,17 @@ ${property?.type?.toLowerCase() !== 'plot' ? `🛏️ Bedrooms: ${property?.bedr
                   )}
                 </ErrorBoundary>
               )}
-              <div className="neartime-price-box">
-                ₹{typeof property?.price === 'number' ? property.price.toLocaleString() : 'N/A'}
-                <br />
-                <span className="neartime-price-per">
-                  ₹{(property?.price && property?.area ? (property.price / parseFloat(property.area)).toFixed(2) : 'N/A')} / {property?.landAreaPostfix || 'sq.ft'}
-                </span>
-              </div>
+              {typeof property?.price === 'number' && property?.price > 0 && (
+                <div className="neartime-price-box">
+                  ₹{property.price.toLocaleString()}
+                  <br />
+                  {property?.price && property?.area && (
+                    <span className="neartime-price-per">
+                      ₹{(property.price / parseFloat(property.area)).toFixed(2)} / {property?.landAreaPostfix || 'sq.ft'}
+                    </span>
+                  )}
+                </div>
+              )}
               {/* <div className="landing-overlay-icons">
                 <FontAwesomeIcon
                   icon={faMap}
@@ -1802,13 +1813,15 @@ ${property?.type?.toLowerCase() !== 'plot' ? `🛏️ Bedrooms: ${property?.bedr
             <div className="overview-container">
               <div className="overview-top-bar">
                 <h2>Overview</h2>
-                <span className="property-id">Property ID: {property?.permanentId || 'N/A'}</span>
+                {property?.permanentId && <span className="property-id">Property ID: {property?.permanentId}</span>}
               </div>
               <div className="overview-grid">
-  <div className="overview-item">
-    <span><FontAwesomeIcon icon={faBuilding} /> {property?.type || 'N/A'}</span>
-    <small>Property Type</small>
-  </div>
+  {property?.type && (
+    <div className="overview-item">
+      <span><FontAwesomeIcon icon={faBuilding} /> {property?.type}</span>
+      <small>Property Type</small>
+    </div>
+  )}
 
   {/* Bedrooms - सिर्फ Plot/Land नहीं होने पर और value > 0 होने पर दिखाओ */}
   {!isPlotOrLand && !isShopOrShowroom && property?.bedrooms > 0 && (
@@ -1834,21 +1847,25 @@ ${property?.type?.toLowerCase() !== 'plot' ? `🛏️ Bedrooms: ${property?.bedr
     </div>
   )}
 
-  {/* Area Size - हमेशा दिखाओ */}
-  <div className="overview-item">
-    <span>
-      <FontAwesomeIcon icon={faRulerCombined} /> 
-      {property?.area || 'N/A'} {property?.landAreaPostfix || property?.sizePostfix || 'sq.ft'}
-    </span>
-    <small>Area Size</small>
-  </div>
+  {/* Area Size - अगर area है तो दिखाओ */}
+  {!!property?.area && property.area !== "0" && (
+    <div className="overview-item">
+      <span>
+        <FontAwesomeIcon icon={faRulerCombined} /> 
+        {property?.area} {property?.landAreaPostfix || property?.sizePostfix || 'sq.ft'}
+      </span>
+      <small>Area Size</small>
+    </div>
+  )}
 </div>
             </div>
 
-            <div className="description-container">
-              <h2>Description</h2>
-              <p>{property?.description || 'No description available.'}</p>
-            </div>
+            {property?.description && (
+              <div className="description-container">
+                <h2>Description</h2>
+                <p>{property?.description}</p>
+              </div>
+            )}
 
 {/* ----------------------------------ads-------------------------------------------- */}
            <div className="ad-section">
@@ -1928,35 +1945,37 @@ ${property?.type?.toLowerCase() !== 'plot' ? `🛏️ Bedrooms: ${property?.bedr
 </div>
 
 
-            <div className="address-section">
-              <h2>Address</h2>
-              <div className="address-details">
-                <div><strong>Address:</strong> {property?.address || 'N/A'}</div>
-                <div><strong>City:</strong> {property?.city || 'N/A'}</div>
-                <div><strong>State/County:</strong> {property?.state || 'N/A'}</div>
-                <div><strong>Area:</strong> {property?.districtName || 'N/A'}</div>
-                <div><strong>Country:</strong> {property?.country || 'N/A'}</div>
-                <button onClick={openGoogleMap} className="google-maps-btn" aria-label="Open in Google Maps">
-                  Open in Google Maps
-                </button>
+            {(property?.address || property?.city || property?.state || property?.districtName || property?.country) && (
+              <div className="address-section">
+                <h2>Address</h2>
+                <div className="address-details">
+                  {property?.address && <div><strong>Address:</strong> {property?.address}</div>}
+                  {property?.city && <div><strong>City:</strong> {property?.city}</div>}
+                  {property?.state && <div><strong>State/County:</strong> {property?.state}</div>}
+                  {property?.districtName && <div><strong>Area:</strong> {property?.districtName}</div>}
+                  {property?.country && <div><strong>Country:</strong> {property?.country}</div>}
+                  <button onClick={openGoogleMap} className="google-maps-btn" aria-label="Open in Google Maps">
+                    Open in Google Maps
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="details-section">
-              <h2>Details <span className="update-time">Updated on {property?.createdAt || 'N/A'}</span></h2>
-              <div className="details-grid">
-                {/* <div><strong>Property ID:</strong> {property?.permanentId || 'N/A'}</div> */}
-                <div><strong>Price:</strong> ₹{typeof property?.price === 'number' ? property.price.toLocaleString() : 'N/A'}</div>
-                <div><strong>Property Size:</strong> {property?.area || 'N/A'} {property?.landAreaPostfix || 'sq.ft'}</div>
-                {!isPlot && !isShopOrShowroom && <div><strong>Bedrooms:</strong> {property?.bedrooms || 'N/A'}</div>}
-                {!isPlot && !isShopOrShowroom && <div><strong>Bathroom:</strong> {property?.bathrooms || 'N/A'}</div>}
-                {/* {!isPlot && <div><strong>Garage:</strong> { property?.garages}</div>} */}
-                {!isPlot && <div><strong>Garage Size:</strong> {property?.garageSize || 'N/A'}</div>}
-                <div><strong>Year Built:</strong> {property?.yearBuilt || 'N/A'}</div>
-                <div><strong>Property Type:</strong> {property?.type || 'N/A'}</div>
-                <div><strong>Property Status:</strong> {getStatus()}</div>
+            {(property?.price || property?.area || property?.bedrooms || property?.bathrooms || property?.yearBuilt || property?.type) && (
+              <div className="details-section">
+                <h2>Details <span className="update-time">{property?.createdAt && `Updated on ${property?.createdAt}`}</span></h2>
+                <div className="details-grid">
+                  {typeof property?.price === 'number' && property?.price > 0 && <div><strong>Price:</strong> ₹{property.price.toLocaleString()}</div>}
+                  {!!property?.area && property.area !== "0" && <div><strong>Property Size:</strong> {property?.area} {property?.landAreaPostfix || 'sq.ft'}</div>}
+                  {!isPlot && !isShopOrShowroom && property?.bedrooms > 0 && <div><strong>Bedrooms:</strong> {property?.bedrooms}</div>}
+                  {!isPlot && !isShopOrShowroom && property?.bathrooms > 0 && <div><strong>Bathroom:</strong> {property?.bathrooms}</div>}
+                  {!isPlot && !!property?.garageSize && property.garageSize !== "0" && <div><strong>Garage Size:</strong> {property?.garageSize}</div>}
+                  {property?.yearBuilt > 0 && <div><strong>Year Built:</strong> {property?.yearBuilt}</div>}
+                  {property?.type && <div><strong>Property Type:</strong> {property?.type}</div>}
+                  <div><strong>Property Status:</strong> {getStatus()}</div>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="features-section">
               <h2>Features</h2>
@@ -2040,7 +2059,12 @@ ${property?.type?.toLowerCase() !== 'plot' ? `🛏️ Bedrooms: ${property?.bedr
             )}
 
             <div className="reviews-section">
-              <h2>Reviews</h2>
+              <h2>
+                Reviews 
+                {reviewCount > 0 && (
+                  <span style={{ fontSize: '1rem', fontWeight: 'normal', color: '#666', marginLeft: '10px' }}><FontAwesomeIcon icon={faSolidStar} style={{ color: '#facc15' }} /> {averageRating} ({reviewCount})</span>
+                )}
+              </h2>
               {reviewsLoading && <p>Loading reviews...</p>}
               {reviewsError && (
                 <p className="error-text">
@@ -2125,7 +2149,3 @@ ${property?.type?.toLowerCase() !== 'plot' ? `🛏️ Bedrooms: ${property?.bedr
 };
 
 export default PropertySell;
-
-
-
-

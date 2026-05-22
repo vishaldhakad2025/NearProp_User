@@ -85,6 +85,17 @@ const HotelBanquetDetails = () => {
 
   const propertyType = urlType === 'banquet' ? 'banquet-hall' : 'hotel';
 
+  const hasValue = (value) => {
+    if (value === null || value === undefined || value === '') return false;
+    if (typeof value === 'number') return value !== 0;
+    return value !== 'N/A' && value !== '0';
+  };
+
+  const formatValue = (value) => {
+    if (!hasValue(value)) return undefined;
+    return value;
+  };
+
   const getToken = () => {
     try {
       const authData = localStorage.getItem('authData');
@@ -284,92 +295,87 @@ const HotelBanquetDetails = () => {
         ...(propertyType === 'hotel' ? data.rooms?.flatMap(room => room.videos || []) : []),
       ].filter(video => video);
 
-      const amenities = [
-        ...new Set(
-          propertyType === 'hotel'
-            ? data.amenities || []
-            : data.amenities || []
-        ),
-      ];
+      const amenities = [...new Set(data.amenities || [])];
 
-      let price = 'N/A';
-      let area = 'N/A';
-      let landAreaPostfix = '';
+      const price = propertyType === 'hotel'
+        ? data.averageRoomPrice ?? data.price ?? data.rooms?.[0]?.price
+        : data.pricePerPlate;
 
-      if (propertyType === 'hotel') {
-        // Prefer averageRoomPrice if available, else top-level price, else first room price
-        price = data.averageRoomPrice ?? data.price ?? data.rooms?.[0]?.price ?? 'N/A';
-        area = data.rooms?.length ?? 0;
-        landAreaPostfix = 'Rooms';
-      } else { // banquet-hall
-        price = data.pricePerPlate ?? 'N/A';
-        // No direct capacity, using parkingCapacity as fallback if needed, but keeping 'N/A' for now as per original
-        area = data.capacity ?? data.parkingCapacity ?? 'N/A';
-        landAreaPostfix = 'Guests'; // Adjusted to better fit banquet (common is per plate + capacity)
-      }
+      const area = propertyType === 'hotel'
+        ? data.rooms?.length
+        : data.capacity ?? data.parkingCapacity;
 
-      const totalBeds = propertyType === 'hotel' ? data.rooms?.reduce((sum, room) => sum + (room.capacity || 0), 0) || 0 : 'N/A';
+      const totalBeds = propertyType === 'hotel'
+        ? data.rooms?.reduce((sum, room) => sum + (room.capacity || 0), 0)
+        : undefined;
+
+      const addressParts = [data.address, data.city, data.state, data.pincode].filter(Boolean);
+      const cleanAddress = addressParts.join(', ');
+      const ownerName = data.landlord?.name || data.userId?.name;
+      const ownerPhone = data.landlord?.contactNumber || data.contactNumber || data.userId?.mobile;
+      const ownerAvatar = data.landlord?.profilePhoto || data.userId?.profileImage;
+      const districtName = data.city || data.state || data.address;
 
       const propertyData = {
         id: data._id || propertyId,
-        title: data.name || 'Untitled Property',
-        description: data.description || 'No description available',
+        title: data.name,
+        description: data.description,
         type: propertyType === 'hotel' ? 'Hotel' : 'Banquet Hall',
-        status: data.isAvailable ? 'AVAILABLE' : 'UNAVAILABLE',
-        price: price,
-        area: area,
-        landAreaPostfix: landAreaPostfix,
-        bedrooms: totalBeds,
-        bathrooms: data.bathrooms || 'N/A',
-        garages: data.parking || data.parkingCapacity || 'N/A',
-        garageSize: data.parkingSize || 'N/A',
-        address: `${data.city || 'Unknown City'}, ${data.state || 'Unknown State'}, ${data.pincode || 'N/A'}`,
-        city: data.city || 'Indore',
-        state: data.state || 'Indore',
-        districtName: data.city || 'Indore', // Ensure districtName is set for ads
-        zipCode: data.pincode || '452010',
-        country: 'India',
+        status: data.status ? data.status.toUpperCase() : (data.isAvailable ? 'AVAILABLE' : undefined),
+        price: formatValue(price),
+        area: formatValue(area),
+        landAreaPostfix: propertyType === 'hotel' ? 'Rooms' : 'Guests',
+        bedrooms: formatValue(totalBeds),
+        bathrooms: formatValue(data.bathrooms),
+        garages: formatValue(data.parking || data.parkingCapacity),
+        garageSize: formatValue(data.parkingSize),
+        address: cleanAddress || undefined,
+        city: formatValue(data.city),
+        state: formatValue(data.state),
+        districtName: formatValue(districtName),
+        zipCode: formatValue(data.pincode),
+        country: formatValue(data.country || data.userId?.address?.country),
         owner: {
-          name: data.landlord?.name || data.userId?.name || 'Unknown Agent',
-          phone: data.landlord?.contactNumber || data.contactNumber || '1234567890',
-          whatsapp: data.landlord?.contactNumber || data.contactNumber || '1234567890',
-          avatar: data.landlord?.profilePhoto || data.userId?.profileImage || '/placeholder.jpg',
+          name: ownerName,
+          phone: formatValue(ownerPhone),
+          whatsapp: formatValue(ownerPhone),
+          avatar: ownerAvatar,
           role: 'Agent',
         },
-        createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-IN') : 'N/A',
-        yearBuilt: data.yearBuilt || 'N/A',
-        imageUrls: allImages.length > 0 ? allImages : [PLACEHOLDER_IMAGE],
-        amenities: amenities.length > 0 ? amenities : ['WiFi', 'Parking'],
+        createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-IN') : undefined,
+        yearBuilt: formatValue(data.yearBuilt),
+        imageUrls: allImages,
+        amenities,
         securityFeatures: data.securityFeatures || [],
         luxuriousFeatures: data.luxuriousFeatures || [],
         features: amenities,
         additionalDetails: {
-          deposit: data.deposit || '20%',
-          poolSize: data.poolSize || 'N/A',
-          lastRemodelYear: data.lastRemodelYear || 'N/A',
-          amenities: amenities.join(', ') || 'N/A',
-          additionalRooms: data.additionalRooms || { guestBath: false, equipment: 'N/A' },
+          deposit: formatValue(data.deposit),
+          poolSize: formatValue(data.poolSize),
+          lastRemodelYear: formatValue(data.lastRemodelYear),
+          amenities: amenities.length > 0 ? amenities.join(', ') : undefined,
+          additionalRooms: data.additionalRooms,
         },
-        permanentId: data.hotelId || data.banquetHallId || 'UNKNOWN',
-        latitude: data.location?.coordinates?.[1] || data.latitude || 19.076,
-        longitude: data.location?.coordinates?.[0] || data.longitude || 72.8777,
-        videoUrl: allVideos[0] || 'https://www.youtube.com/embed/-NInBEdSvp8?si=H4Qq2rmaE3bifehT',
+        permanentId: data.hotelId || data.banquetHallId,
+        latitude: formatValue(data.location?.coordinates?.[1] ?? data.latitude),
+        longitude: formatValue(data.location?.coordinates?.[0] ?? data.longitude),
+        videoUrl: allVideos[0],
         approved: data.verificationStatus === 'verified',
         featured: data.subscriptions?.[0]?.isActive || false,
         active: data.isAvailable,
-        subscriptionExpiry: data.subscriptions?.[0]?.endDate || new Date().toISOString(),
+        subscriptionExpiry: data.subscriptions?.[0]?.endDate,
         rooms: propertyType === 'hotel' ? (data.rooms || []) : [],
-        gst: data.gst || data.gstNumber || 'N/A',
-        businessLicense: data.businessLicense || 'N/A',
-        capacity: propertyType === 'banquet-hall' ? (data.capacity || data.parkingCapacity || 'N/A') : 'N/A',
-        eventTypes: propertyType === 'banquet-hall' ? data.events?.map(e => e.eventType) || [] : [],
-        cateringOptions: propertyType === 'banquet-hall' ? data.cateringOptions || [] : [],
-        pricePerEvent: propertyType === 'banquet-hall' ? data.pricePerPlate : 'N/A', // Using pricePerPlate as per response
+        gst: formatValue(data.gst || data.gstNumber),
+        businessLicense: formatValue(data.businessLicense),
+        capacity: propertyType === 'banquet-hall' ? formatValue(data.capacity ?? data.parkingCapacity) : undefined,
+        eventTypes: propertyType === 'banquet-hall' ? (data.events?.map(e => e.eventType).filter(Boolean) || []) : [],
+        cateringOptions: propertyType === 'banquet-hall' ? (data.cateringOptions || []) : [],
+        pricePerEvent: propertyType === 'banquet-hall' ? formatValue(data.pricePerPlate) : undefined,
         seasonalPrice: data.seasonalPrice || {},
-        subscriptionPlan: data.subscriptions?.[0]?.planId?.name || 'N/A',
-        subscriptionStartDate: data.subscriptions?.[0]?.startDate || 'N/A',
-        subscriptionFinalPrice: data.subscriptions?.[0]?.finalPrice || 'N/A',
-        subscriptionDiscountApplied: data.subscriptions?.[0]?.discountApplied || 'N/A',
+        subscriptionPlan: formatValue(data.subscriptions?.[0]?.planId?.name),
+        subscriptionStartDate: formatValue(data.subscriptions?.[0]?.startDate),
+        subscriptionFinalPrice: formatValue(data.subscriptions?.[0]?.finalPrice),
+        subscriptionDiscountApplied: formatValue(data.subscriptions?.[0]?.discountApplied),
       };
 
       setProperty(propertyData);
@@ -562,12 +568,27 @@ const HotelBanquetDetails = () => {
     );
   }
 
-  const images = property?.imageUrls || [PLACEHOLDER_IMAGE];
+  const galleryImages = property?.imageUrls?.length > 0 ? property.imageUrls : [];
+  const images = galleryImages.length > 0 ? galleryImages : [PLACEHOLDER_IMAGE];
+  const hasPrice = hasValue(property?.price);
+  const hasArea = hasValue(property?.area);
+  const hasYearBuilt = hasValue(property?.yearBuilt);
+  const hasBusinessLicense = hasValue(property?.businessLicense);
+  const hasGST = hasValue(property?.gst);
+  const hasAddress = hasValue(property?.address);
+  const hasCity = hasValue(property?.city);
+  const hasState = hasValue(property?.state);
+  const hasZip = hasValue(property?.zipCode);
+  const hasCountry = hasValue(property?.country);
+  const hasDescription = hasValue(property?.description);
+  const hasAmenities = property?.amenities?.length > 0;
+  const hasVideo = hasValue(property?.videoUrl);
+
   const getStatus = () => {
     if (!property?.approved) return 'Pending Verification';
     if (!property?.active) return 'Expired';
     if (property?.status === 'UNAVAILABLE') return 'Unavailable';
-    return 'Active';
+    return property?.status || 'Active';
   };
 
   const defaultOwner = {
@@ -591,13 +612,15 @@ const HotelBanquetDetails = () => {
             <p className="location"><FontAwesomeIcon icon={faLocationDot} /> {property?.address || 'Unknown Address'}</p>
             <div className="labels">
               {property?.featured && <span className="label featured"><FontAwesomeIcon icon={faStar} /> Featured</span>}
-              <span className="label for-sale">{property?.status || 'N/A'}</span>
+              {property?.status && <span className="label for-sale">{property.status}</span>}
               <span className="label">{averageRating} ({reviewCount} reviews)</span>
             </div>
           </div>
-          <div className="property-price">
-            <span className="price">₹{property?.price?.toLocaleString?.() || property?.price || 'N/A'} {propertyType === 'banquet-hall' ? '/plate' : '/night'}</span>
-          </div>
+          {hasPrice && (
+            <div className="property-price">
+              <span className="price">₹{property.price.toLocaleString?.() || property.price} {propertyType === 'banquet-hall' ? '/plate' : '/night'}</span>
+            </div>
+          )}
         </div>
 
         <div className="main-layout">
@@ -654,13 +677,17 @@ const HotelBanquetDetails = () => {
                   />
                 ))}
               </div>
-              <div className="neartime-price-box">
-                ₹{property?.price?.toLocaleString?.() || property?.price || 'N/A'} {propertyType === 'banquet-hall' ? '/plate' : '/night'}
-                <br />
-                <span className="neartime-price-per">
-                  {property?.area || 'N/A'} {property?.landAreaPostfix || ''}
-                </span>
-              </div>
+              {(hasPrice || hasArea) && (
+                <div className="neartime-price-box">
+                  {hasPrice && (`₹${property.price.toLocaleString?.() || property.price} ${propertyType === 'banquet-hall' ? '/plate' : '/night'}`)}
+                  {hasPrice && hasArea && <br />}
+                  {hasArea && (
+                    <span className="neartime-price-per">
+                      {property.area} {property.landAreaPostfix || ''}
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="landing-overlay-icons">
                 <FontAwesomeIcon
                   icon={faMap}
@@ -702,39 +729,49 @@ const HotelBanquetDetails = () => {
               <div className="docker-content">
                 <div className="docker-chips">
                   {property?.featured && <span className="docker-chip featured">FEATURED</span>}
-                  <span className="docker-chip for-sale">{property?.status || 'N/A'}</span>
+                  {property?.status && <span className="docker-chip for-sale">{property.status}</span>}
                 </div>
                 <h1 className="docker-title">{property?.title || 'Untitled Property'}</h1>
                 <div className="docker-address">
                   <FontAwesomeIcon icon={faLocationDot} />
                   <span>{property?.address || 'Unknown Address'}</span>
                 </div>
-                <div className="docker-price">₹{property?.price?.toLocaleString?.() || property?.price || 'N/A'} {propertyType === 'banquet-hall' ? '/plate' : '/night'}</div>
-                <div className="docker-per">{property?.area || 'N/A'} {property?.landAreaPostfix || ''}</div>
+                {hasPrice && (
+                  <div className="docker-price">₹{property.price.toLocaleString?.() || property.price} {propertyType === 'banquet-hall' ? '/plate' : '/night'}</div>
+                )}
+                {hasArea && (
+                  <div className="docker-per">{property.area} {property.landAreaPostfix || ''}</div>
+                )}
                 <div className="docker-divider"></div>
                 <div className="docker-section-head">
                   <h3>Overview</h3>
                   <small>Property ID: {property?.permanentId || 'UNKNOWN'}</small>
                 </div>
                 <div className="docker-overview">
-                  <div className="docker-ovr">
-                    <div className="docker-ic"><FontAwesomeIcon icon={faBuilding} /></div>
-                    <div><b>{property?.type || 'N/A'}</b><span>Property Type</span></div>
-                  </div>
-                  {propertyType === 'hotel' && (
+                  {property?.type && (
                     <div className="docker-ovr">
-                      <div className="docker-ic"><FontAwesomeIcon icon={faBed} /></div>
-                      <div><b>{property?.bedrooms || 'N/A'}</b><span>Beds</span></div>
+                      <div className="docker-ic"><FontAwesomeIcon icon={faBuilding} /></div>
+                      <div><b>{property.type}</b><span>Property Type</span></div>
                     </div>
                   )}
-                  <div className="docker-ovr">
-                    <div className="docker-ic"><FontAwesomeIcon icon={faRulerCombined} /></div>
-                    <div><b>{property?.area || 'N/A'}</b><span>{propertyType === 'hotel' ? 'Rooms' : 'Capacity'}</span></div>
-                  </div>
-                  <div className="docker-ovr">
-                    <div className="docker-ic"><FontAwesomeIcon icon={faCalendarDays} /></div>
-                    <div><b>{property?.yearBuilt || 'N/A'}</b><span>Year Built</span></div>
-                  </div>
+                  {propertyType === 'hotel' && hasValue(property?.bedrooms) && (
+                    <div className="docker-ovr">
+                      <div className="docker-ic"><FontAwesomeIcon icon={faBed} /></div>
+                      <div><b>{property.bedrooms}</b><span>Beds</span></div>
+                    </div>
+                  )}
+                  {hasArea && (
+                    <div className="docker-ovr">
+                      <div className="docker-ic"><FontAwesomeIcon icon={faRulerCombined} /></div>
+                      <div><b>{property.area}</b><span>{propertyType === 'hotel' ? 'Rooms' : 'Capacity'}</span></div>
+                    </div>
+                  )}
+                  {hasYearBuilt && (
+                    <div className="docker-ovr">
+                      <div className="docker-ic"><FontAwesomeIcon icon={faCalendarDays} /></div>
+                      <div><b>{property.yearBuilt}</b><span>Year Built</span></div>
+                    </div>
+                  )}
                 </div>
                 <div className="docker-divider"></div>
                 <div>
@@ -753,14 +790,18 @@ const HotelBanquetDetails = () => {
                 <span className="property-id">Property ID: {property?.permanentId || 'UNKNOWN'}</span>
               </div>
               <div className="overview-grid">
-                <div className="overview-item">
-                  <span><FontAwesomeIcon icon={faBuilding} /> {property?.type || 'N/A'}</span>
-                  <small>Property Type</small>
-                </div>
-                <div className="overview-item">
-                  <span><FontAwesomeIcon icon={faCalendarDays} /> {property?.createdAt || 'N/A'}</span>
-                  <small>Listed On</small>
-                </div>
+                {property?.type && (
+                  <div className="overview-item">
+                    <span><FontAwesomeIcon icon={faBuilding} /> {property.type}</span>
+                    <small>Property Type</small>
+                  </div>
+                )}
+                {property?.createdAt && (
+                  <div className="overview-item">
+                    <span><FontAwesomeIcon icon={faCalendarDays} /> {property.createdAt}</span>
+                    <small>Listed On</small>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -772,8 +813,16 @@ const HotelBanquetDetails = () => {
                     {property.rooms.map((room, index) => (
                       <div key={room._id || index} className="room-item">
                         <h3>Room {room.roomNumber || room.roomType} ({room.roomType})</h3>
-                        <p><strong>Price:</strong> ₹{room.price?.toLocaleString() || 'N/A'}</p>
-                        <p><strong>Seasonal Price:</strong> Summer: ₹{room.seasonalPrice?.summer?.toLocaleString() || 'N/A'}, Winter: ₹{room.seasonalPrice?.winter?.toLocaleString() || 'N/A'}</p>
+                        {hasValue(room?.price) && (
+                          <p><strong>Price:</strong> ₹{room.price.toLocaleString?.() || room.price}</p>
+                        )}
+                        {(hasValue(room?.seasonalPrice?.summer) || hasValue(room?.seasonalPrice?.winter)) && (
+                          <p><strong>Seasonal Price:</strong>
+                            {hasValue(room.seasonalPrice.summer) && ` Summer: ₹${room.seasonalPrice.summer.toLocaleString?.() || room.seasonalPrice.summer}`}
+                            {hasValue(room.seasonalPrice.summer) && hasValue(room.seasonalPrice.winter) ? ',' : ''}
+                            {hasValue(room.seasonalPrice.winter) && ` Winter: ₹${room.seasonalPrice.winter.toLocaleString?.() || room.seasonalPrice.winter}`}
+                          </p>
+                        )}
                         <p><strong>Availability:</strong> {room.isAvailable ? 'Available' : 'Unavailable'}</p>
                         <p><strong>Features:</strong> {room.features?.join(', ') || 'None'}</p>
                         <p><strong>Services:</strong> {room.services?.join(', ') || 'None'}</p>
@@ -800,18 +849,34 @@ const HotelBanquetDetails = () => {
             ) : (
               <div className="banquet-details-section">
                 <h2>Banquet Hall Details</h2>
-                <p><strong>Price Per Plate:</strong> ₹{property?.price?.toLocaleString() || property?.price || 'N/A'}</p>
-                <p><strong>Capacity:</strong> {property?.capacity || 'N/A'}</p>
-                <p><strong>Event Types:</strong> {property?.eventTypes?.join(', ') || 'N/A'}</p>
-                <p><strong>Catering Options:</strong> {property?.cateringOptions?.join(', ') || 'N/A'}</p>
-                <p><strong>Seasonal Price:</strong> Summer: ₹{property?.seasonalPrice?.summer?.toLocaleString() || 'N/A'}, Winter: ₹{property?.seasonalPrice?.winter?.toLocaleString() || 'N/A'}</p>
+                {hasPrice && (
+                  <p><strong>Price Per Plate:</strong> ₹{property.price.toLocaleString?.() || property.price}</p>
+                )}
+                {hasValue(property?.capacity) && (
+                  <p><strong>Capacity:</strong> {property.capacity}</p>
+                )}
+                {property?.eventTypes?.length > 0 && (
+                  <p><strong>Event Types:</strong> {property.eventTypes.join(', ')}</p>
+                )}
+                {property?.cateringOptions?.length > 0 && (
+                  <p><strong>Catering Options:</strong> {property.cateringOptions.join(', ')}</p>
+                )}
+                {(hasValue(property?.seasonalPrice?.summer) || hasValue(property?.seasonalPrice?.winter)) && (
+                  <p><strong>Seasonal Price:</strong>
+                    {hasValue(property.seasonalPrice.summer) && ` Summer: ₹${property.seasonalPrice.summer.toLocaleString?.() || property.seasonalPrice.summer}`}
+                    {hasValue(property.seasonalPrice.summer) && hasValue(property.seasonalPrice.winter) ? ',' : ''}
+                    {hasValue(property.seasonalPrice.winter) && ` Winter: ₹${property.seasonalPrice.winter.toLocaleString?.() || property.seasonalPrice.winter}`}
+                  </p>
+                )}
               </div>
             )}
 
-            <div className="description-container">
-              <h2>Description</h2>
-              <p>{property?.description || 'No description available'}</p>
-            </div>
+            {hasDescription && (
+              <div className="description-container">
+                <h2>Description</h2>
+                <p>{property.description}</p>
+              </div>
+            )}
 
             <div className="ad-section">
               <span className="ads">Sponsored</span>
@@ -866,70 +931,90 @@ const HotelBanquetDetails = () => {
               )}
             </div>
 
-            <div className="address-section">
-              <h2>Address</h2>
-              <div className="address-details">
-                <div><strong>Address:</strong> {property?.address || 'Unknown Address'}</div>
-                <div><strong>City:</strong> {property?.city || 'N/A'}</div>
-                <div><strong>State:</strong> {property?.state || 'N/A'}</div>
-                <div><strong>Zip/Postal Code:</strong> {property?.zipCode || 'N/A'}</div>
-                <div><strong>Country:</strong> {property?.country || 'N/A'}</div>
-                <button onClick={openGoogleMap} className="google-maps-btn" aria-label="Open in Google Maps">
-                  Open in Google Maps
-                </button>
+            {(hasAddress || hasCity || hasState || hasZip || hasCountry) && (
+              <div className="address-section">
+                <h2>Address</h2>
+                <div className="address-details">
+                  {hasAddress && <div><strong>Address:</strong> {property.address}</div>}
+                  {hasCity && <div><strong>City:</strong> {property.city}</div>}
+                  {hasState && <div><strong>State:</strong> {property.state}</div>}
+                  {hasZip && <div><strong>Zip/Postal Code:</strong> {property.zipCode}</div>}
+                  {hasCountry && <div><strong>Country:</strong> {property.country}</div>}
+                  <button onClick={openGoogleMap} className="google-maps-btn" aria-label="Open in Google Maps">
+                    Open in Google Maps
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="details-section">
-              <h2>Details <span className="update-time">Updated on {property?.createdAt || 'N/A'}</span></h2>
+              <h2>Details{property?.createdAt ? <span className="update-time"> Updated on {property.createdAt}</span> : ''}</h2>
               <div className="details-grid">
                 <div><strong>Property ID:</strong> <span className="property-id">{property?.permanentId || 'UNKNOWN'}</span></div>
-                <div><strong>Price:</strong> ₹{property?.price?.toLocaleString?.() || property?.price || 'N/A'} {propertyType === 'banquet-hall' ? '/plate' : '/night'}</div>
-                <div><strong>{propertyType === 'hotel' ? 'Rooms' : 'Capacity'}:</strong> {property?.area || 'N/A'}</div>
-                <div><strong>Property Type:</strong> {property?.type || 'N/A'}</div>
+                {hasPrice && (
+                  <div><strong>Price:</strong> ₹{property.price.toLocaleString?.() || property.price} {propertyType === 'banquet-hall' ? '/plate' : '/night'}</div>
+                )}
+                {hasArea && (
+                  <div><strong>{propertyType === 'hotel' ? 'Rooms' : 'Capacity'}:</strong> {property.area}</div>
+                )}
+                {property?.type && (
+                  <div><strong>Property Type:</strong> {property.type}</div>
+                )}
                 <div><strong>Property Status:</strong> {getStatus()}</div>
-                <div><strong>Business License:</strong> <a href={property?.businessLicense || '#'} target="_blank" rel="noopener noreferrer">{property?.businessLicense || 'N/A'}</a></div>
-                <div><strong>GST:</strong> <a href={property?.gst || '#'} target="_blank" rel="noopener noreferrer">{property?.gst || 'N/A'}</a></div>
+                {hasBusinessLicense && (
+                  <div className="full-row"><strong>Business License:</strong> <a href={property.businessLicense} target="_blank" rel="noopener noreferrer">View License</a></div>
+                )}
+                {hasGST && (
+                  <div className="full-row"><strong>GST:</strong> <a href={property.gst} target="_blank" rel="noopener noreferrer">{property.gst}</a></div>
+                )}
               </div>
             </div>
 
-            <div className="features-section">
-              <h2>Amenities</h2>
-              <div className="features-list">
-                {property?.amenities?.map((feature, index) => (
-                  <div key={index} className="feature-item">
-                    <input type="checkbox" checked readOnly />
-                    <span>{feature}</span>
-                  </div>
-                )) || <p>No amenities available.</p>}
+            {hasAmenities && (
+              <div className="features-section">
+                <h2>Amenities</h2>
+                <div className="features-list">
+                  {property.amenities.map((feature, index) => (
+                    <div key={index} className="feature-item">
+                      <input type="checkbox" checked readOnly />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="gallery-section">
               <h2>Gallery</h2>
               <div className="gallery-grid">
-                {property?.imageUrls?.map((img, index) => (
-                  <img
-                    key={index}
-                    src={img}
-                    alt={`Gallery ${index + 1}`}
-                    onError={(e) => { e.target.src = PLACEHOLDER_IMAGE; }}
-                  />
-                )) || <p>No images available.</p>}
+                {galleryImages.length > 0 ? (
+                  galleryImages.map((img, index) => (
+                    <img
+                      key={index}
+                      src={img}
+                      alt={`Gallery ${index + 1}`}
+                      onError={(e) => { e.target.src = PLACEHOLDER_IMAGE; }}
+                    />
+                  ))
+                ) : (
+                  <p>No images available.</p>
+                )}
               </div>
             </div>
 
-            <div className="video-section">
-              <h2>Video Tour</h2>
-              <div className="video-wrapper">
-                <video
-                  src={property?.videoUrl || 'https://www.youtube.com/embed/-NInBEdSvp8?si=H4Qq2rmaE3bifehT'}
-                  controls
-                  className="video-player"
-                  onError={(e) => console.error('Video load error:', e)}
-                />
+            {hasVideo && (
+              <div className="video-section">
+                <h2>Video Tour</h2>
+                <div className="video-wrapper">
+                  <video
+                    src={property.videoUrl}
+                    controls
+                    className="video-player"
+                    onError={(e) => console.error('Video load error:', e)}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="reviews-section">
               <h2>Reviews</h2>
