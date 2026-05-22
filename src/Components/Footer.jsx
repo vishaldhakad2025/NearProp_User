@@ -65,9 +65,9 @@ function Footer() {
 
         <div className="footer-col">
           <h3>Contact</h3>
-          <p>📍 Ward No. 15, Kutumb Nagar, Etwa, Begusarai, Bihar – 851117</p>
-          <p>📧 contact@nearprop.com</p>
-          <p>📞 +91 91551 05666</p>
+          <p>Regd. Off.: Ward No. 36, Ashok Nagar,  VIP Road, Pokharia, Near Krishnamurti Public School, Begusarai, Bihar - 851101</p>
+          <p>📧 info@nearprop.com, support@nearprop.com</p>
+          <p>📞 8409777644</p>
 
           <div className="social-icons">
             <a href="https://www.facebook.com/Nearprop"><FontAwesomeIcon icon={faFacebook} /></a>

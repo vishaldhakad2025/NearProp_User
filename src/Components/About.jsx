@@ -53,7 +53,7 @@ function About() {
       </section>
 
       <section className="city-section">
-        <h2 style={{ fontSize: "30px", color: "darkcyan" }}>Meet our Team</h2>
+        <h2 style={{ fontSize: "30px", color: "darkcyan" }}>  m</h2>
         <p style={{ fontSize: "15px" }} className="subheading">
           At NearProp, our team of dedicated real estate professionals is committed to guiding you through every step of your property journey. With a deep understanding of the local market, we ensure personalized solutions tailored to your needs.
         </p>

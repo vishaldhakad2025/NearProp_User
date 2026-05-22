@@ -548,6 +548,7 @@ ${property?.type?.toLowerCase() !== 'plot' ? `🛏️ Bedrooms: ${property?.bedr
   const images = property?.imageUrls || [Apartment];
   const isPlotOrLand = ['PLOT', 'LAND'].includes(property?.type?.toUpperCase());
   const isPlot = property?.type?.toLowerCase() === 'plot';
+  const isShopOrShowroom = ['SHOP', 'SHOWROOM'].includes(property?.type?.toUpperCase());
   const getStatus = () => {
     if (!property?.approved) return 'Pending Verification';
     if (!property?.active) return 'Expired';
@@ -1810,15 +1811,15 @@ ${property?.type?.toLowerCase() !== 'plot' ? `🛏️ Bedrooms: ${property?.bedr
   </div>
 
   {/* Bedrooms - सिर्फ Plot/Land नहीं होने पर और value > 0 होने पर दिखाओ */}
-  {!isPlotOrLand && property?.bedrooms > 0 && (
+  {!isPlotOrLand && !isShopOrShowroom && property?.bedrooms > 0 && (
     <div className="overview-item">
       <span><FontAwesomeIcon icon={faBed} /> {property?.bedrooms}</span>
       <small>Bedrooms</small>
     </div>
   )}
 
-  {/* Bathrooms - सिर्फ Plot/Land नहीं होने पर और value > 0 होने पर दिखाओ */}
-  {!isPlotOrLand && property?.bathrooms > 0 && (
+  {/* Bathrooms - सिर्फ Plot/Land या Shop/Showroom नहीं होने पर और value > 0 होने पर दिखाओ */}
+  {!isPlotOrLand && !isShopOrShowroom && property?.bathrooms > 0 && (
     <div className="overview-item">
       <span><FontAwesomeIcon icon={faShower} /> {property?.bathrooms}</span>
       <small>Bathrooms</small>
@@ -1947,8 +1948,8 @@ ${property?.type?.toLowerCase() !== 'plot' ? `🛏️ Bedrooms: ${property?.bedr
                 {/* <div><strong>Property ID:</strong> {property?.permanentId || 'N/A'}</div> */}
                 <div><strong>Price:</strong> ₹{typeof property?.price === 'number' ? property.price.toLocaleString() : 'N/A'}</div>
                 <div><strong>Property Size:</strong> {property?.area || 'N/A'} {property?.landAreaPostfix || 'sq.ft'}</div>
-                {!isPlot && <div><strong>Bedrooms:</strong> {property?.bedrooms || 'N/A'}</div>}
-                {!isPlot && <div><strong>Bathroom:</strong> {property?.bathrooms || 'N/A'}</div>}
+                {!isPlot && !isShopOrShowroom && <div><strong>Bedrooms:</strong> {property?.bedrooms || 'N/A'}</div>}
+                {!isPlot && !isShopOrShowroom && <div><strong>Bathroom:</strong> {property?.bathrooms || 'N/A'}</div>}
                 {/* {!isPlot && <div><strong>Garage:</strong> { property?.garages}</div>} */}
                 {!isPlot && <div><strong>Garage Size:</strong> {property?.garageSize || 'N/A'}</div>}
                 <div><strong>Year Built:</strong> {property?.yearBuilt || 'N/A'}</div>

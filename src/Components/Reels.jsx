@@ -721,12 +721,12 @@ function Reels() {
                   className="profile-pic" 
                 />
                 <p className="username">{reel.owner.name}</p>
-                <button 
+                {/* <button 
                   className={`follow-btn ${reel.followed ? "following" : ""}`} 
                   onClick={() => handleFollowToggle(reel.id)}
                 >
                   {reel.followed ? "Following" : "Follow"}
-                </button>
+                </button> */}
               </div>
  
               <p className="video-caption">{reel.title || 'No caption'}</p>
