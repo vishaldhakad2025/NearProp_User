@@ -82,7 +82,7 @@ function Footer() {
       </div>
 
       <div className="footer-bottom">
-        Powered by Rudraashwi Technology
+        Powered by Near Prop
       </div>
     </footer>
   );
